@@ -4,6 +4,7 @@ import warnings
 from pyvcard_regex import *
 from pyvcard_exceptions import *
 
+validate_vcards = True
 
 class VERSION(enum.Enum):
     V2_1 = "2.1"
@@ -14,18 +15,28 @@ class _STATE(enum.Enum):
     BEGIN = 0
     END = 1
 
+
+def quotable_to_str(string):
+    pass
+
+
+def strinteger(string):
+    pass
+
+
 class _vcard_entry:
-    def __init__(self, name, values, params={}):
+    def __init__(self, name, values, params={}, group=None):
         self._name = name
         self._params = params
         self._values = values
+        self._group = group
 
     def repr_vcard(self):
         string = self.name
         c = 0
         for i in self.params:
             if c > 0:
-                string += ';'
+                string += r'\;'
             if self.params[i]:
                 string += f"{i}={self._params[i]}"
             else:
@@ -42,6 +53,10 @@ class _vcard_entry:
     @property
     def params(self):
         return self._params
+
+    @property
+    def group(self):
+        return self._group
 
     @property
     def values(self):
@@ -84,11 +99,17 @@ def _parse_line(string, version):
             params_dict = {}
             for param in params:
                 if len(param) == 1:
-                    params_dict[param[0]] = None
+                    params_dict[param[0].upper()] = None
                 else:
-                    params_dict[param[0]] = param[1]
-        values = m2.group(9).split(";")
-        return name, values, params_dict
+                    if param[0] in params_dict:
+                        if type(params_dict[params[0]]) != list:
+                            params_dict[params[0]] = [params_dict[params[0]]]
+                        params_dict[params[0].upper()].append(params[1])
+                    else:
+                        params_dict[param[0].upper()] = param[1]
+        values = m2.group(9).split(r"\;")
+        group = m2.group(1) if m2.group(1) != "" else None
+        return name, values, params_dict, group
     return None
 
 
@@ -111,6 +132,8 @@ def _parse_lines(strings):
 
 class _vcard_Parser:
     def __init__(self, source):
+        if source.strip() == "":
+            raise VCardValidationError("Empty file")
         source = source.splitlines(False)
         source = _unfold_lines(source)
         self.__args = _parse_lines(source)
