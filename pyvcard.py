@@ -1,6 +1,7 @@
 import enum
 import re
 import warnings
+import quopri
 from pyvcard_regex import *
 from pyvcard_exceptions import *
 
@@ -16,12 +17,16 @@ class _STATE(enum.Enum):
     END = 1
 
 
-def quotable_to_str(string):
-    pass
+def quoted_to_str(string):
+    return quopri.decodestring(string)
 
 
 def strinteger(string):
-    pass
+    n = ""
+    for i in string:
+        if i.isdigit():
+            n += i
+    return int(n)
 
 
 class _vcard_entry:
@@ -103,10 +108,10 @@ def _parse_line(string, version):
                 else:
                     if param[0] in params_dict:
                         if type(params_dict[params[0]]) != list:
-                            params_dict[params[0]] = [params_dict[params[0]]]
-                        params_dict[params[0].upper()].append(params[1])
+                            params_dict[params[0].upper()] = [params_dict[params[0].upper()]]
+                        params_dict[params[0].upper()].append(params[1].lower())
                     else:
-                        params_dict[param[0].upper()] = param[1]
+                        params_dict[param[0].upper()] = param[1].lower()
         values = m2.group(9).split(r"\;")
         group = m2.group(1) if m2.group(1) != "" else None
         return name, values, params_dict, group
