@@ -1,8 +1,52 @@
 from pyvcard_exceptions import *
+from pyvcard_regex import *
 from urllib.parse import urlparse
 import re
 import warnings
 
+TYPE_TEL = [
+    'home',
+    'msg',
+    'work',
+    'pref',
+    'voice',
+    'fax',
+    'cell',
+    'video',
+    'pager',
+    'bbs',
+    'modem',
+    'car',
+    'isdn',
+    'pcs',
+    'textphone'
+]
+LABEL_TEL = [
+    'dom',
+    'intl',
+    'postal',
+    'parcel',
+    'home',
+    'work',
+    'pref'
+]
+TYPE_EMAIL = [
+    'internet',
+    'x400',
+    'pref',
+    'dom',
+    'intl',
+    'postal',
+    'parcel',
+    'home',
+    'work'
+]
+VALUE_TYPE = [
+    "text", "uri", "date",
+    "time", "date-and-or-time", "datetime",
+    "timestamp", "boolean", "integer", "float",
+    "utc-offset", "language-tag"
+]
 
 def values_count_required(property, mincount, maxcount):
     if len(property.values) < mincount:
@@ -25,11 +69,18 @@ def validate_value_parameter(property, values, param_required=False, text_allowe
             (property.params["VALUE"] == "text" & text_allowed):
             raise VCardValidationError(f"VALUE param {val} not found", property)
     else:
-        return not param_required
+        if param_required:
+            raise VCardValidationError("VALUE param not found", property)
 
 
 def validate_text(value, property=None):
-    pass
+    if not re.match(VALID_TEXT, value):
+        raise VCardValidationError("Text isn't match", property)
+
+
+def validate_text_list(value, property=None):
+    if not re.match(VALID_TEXTLIST, value):
+        raise VCardValidationError("Text list isn't match", property)
 
 
 def validate_datetime(value, subtype, property=None):
@@ -81,7 +132,7 @@ def validate_uri(value, property=None):
         raise VCardValidationError("URI is incorrect", property)
 
 
-def params_names_required(property, names, values={}, property=None):
+def params_names_required(property, names, values={}):
     for i in property.params:
         if len(values) != 0:
             for value in values:
@@ -93,10 +144,23 @@ def params_names_required(property, names, values={}, property=None):
 
 
 def validate_parameter(property):
-    pass
+    for param in property.params:
+        if param == "LANGUAGE":
+            validate_language_tag(property.params[param], property)
+        elif param == "PREF":
+            i = int(property.params[param])
+            if i > 100 or i < 1:
+                raise VCardValidationError("PREF param has invalid parameter", property)   
+        elif param == "PID":
+            if not re.match(r"(\d+)(.(\d+))*(,(\d+)(.(\d+)))*", property.params[param]):
+                raise VCardValidationError("PID param has invalid parameter", property)
+        elif param == "SORT-AS":
+            if not re.match(r"\"(\w+)(,(\w+))*\"", property.params[param]):
+                raise VCardValidationError("SORT-AS param has invalid parameter", property)
 
 
 def validate_property(property, version):
+    validate_parameter(property)
     if property.name == "PROFILE":
         if property.value.lower() != "vcard":
             raise VCardValidationError(property, "Profile must be with VALUE=VCARD")
@@ -111,7 +175,7 @@ def validate_property(property, version):
     elif property.name == "XML":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
-        validate_text(property.values[0])
+        validate_text(property.values[0], property)
     elif property.name == "FN":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
@@ -122,9 +186,9 @@ def validate_property(property, version):
     elif property.name == "NICKNAME":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
-        validate_text(property.values[0], property)
+        validate_text_list(property.values[0], property)
     elif property.name in ["PHOTO", "LOGO"]:
-        if verison == "4.0":
+        if version == "4.0":
             validate_value_parameter(property, ["uri"], text_allowed=False)
             values_count_required(property, 1, 1)
         else:
@@ -134,18 +198,12 @@ def validate_property(property, version):
             else:
                 if property.params["ENCODING"] != "b":
                     raise VCardValidationError("Encoding must be 'b'", property)
-    elif property.name == "BDAY":
+    elif property.name in ["BDAY", "ANNIVERSARY", "DEATHDATE"]:
         validate_value_parameter(property, ["date-and-or-time"])
         values_count_required(property, 1, 1)
         if "VALUE" in property.params:
             if property.params["VALUE"] != "text":
-                validate_datetime(property.values[0], None)
-    elif property.name == "ANNIVERSARY":
-        validate_value_parameter(property, ["date-and-or-time"])
-        values_count_required(property, 1, 1)
-        if "VALUE" in property.params:
-            if property.params["VALUE"] != "text":
-                validate_datetime(property.values[0], None)
+                validate_datetime(property.values[0], None, property)
     elif property.name == "GENDER":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 2)
@@ -159,15 +217,7 @@ def validate_property(property, version):
                 subvalues = property.params["TYPE"].split(",")
                 for subvalue in subvalues:
                     subvalue = subvalue.lower()
-                    if subvalue in [
-                        'dom',
-                        'intl',
-                        'postal',
-                        'parcel',
-                        'home',
-                        'work',
-                        'pref'
-                    ]:
+                    if subvalue not in LABEL_TEL:
                         raise VCardValidationError(f"ADR type {subvalue} is unknown")
     elif property.name == "LABEL":
         values_count_required(property, 7, 7)
@@ -176,15 +226,7 @@ def validate_property(property, version):
         if "TYPE" in property.params:
             subvalues = property.params["TYPE"].split(",")
             for subvalue in subvalues:
-                if subvalue in [
-                    'dom',
-                    'intl',
-                    'postal',
-                    'parcel',
-                    'home',
-                    'work',
-                    'pref'
-                ]:
+                if subvalue not in TYPE_LABEL:
                     raise VCardValidationError(f"ADR type {subvalue} is unknown")
     elif property.name == "TEL":
         validate_value_parameter(property, ["uri"])
@@ -192,23 +234,7 @@ def validate_property(property, version):
             subvalues = property.params["TYPE"].split(",")
             length = len(subvalues)
             for subvalue in subvalues:
-                if subvalue in [
-                    'home',
-                    'msg',
-                    'work',
-                    'pref',
-                    'voice',
-                    'fax',
-                    'cell',
-                    'video',
-                    'pager',
-                    'bbs',
-                    'modem',
-                    'car',
-                    'isdn',
-                    'pcs',
-                    'textphone'
-                ]:
+                if subvalue not in TYPE_TEL:
                     raise VCardValidationError(f"ADR type {subvalue} is unknown")
         if version != "4.0":
             length = 1
@@ -220,48 +246,38 @@ def validate_property(property, version):
             subvalues = property.params["TYPE"].split(",")
             length = len(subvalues)
             for subvalue in subvalues:
-                if subvalue in [
-                    'internet',
-                    'x400',
-                    'pref',
-                    'dom',
-                    'intl',
-                    'postal',
-                    'parcel',
-                    'home',
-                    'work'
-                ]:
+                if subvalue not in TYPE_EMAIL:
                     raise VCardValidationError(f"ADR type {subvalue} is unknown")
     elif property.name == "IMPP":
         validate_value_parameter(property, ["uri"])
         values_count_required(property, 1, 1)
-        validate_uri(property.values[0])
+        validate_uri(property.values[0], property)
     elif property.name == "MAILER":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
-        validate_text(property.values[0])
+        validate_text(property.values[0], property)
     elif property.name == "LANG":
         values_count_required(property, 1, 1)
         validate_value_parameter(property, ["language-tag"], text_allowed=False)
-        validate_language_tag(property.values[0])
+        validate_language_tag(property.values[0], property)
     elif property.name == "TZ":
         if version == "4.0":
             validate_value_parameter(property, ["utc-offset", "uri"])
             values_count_required(property, 1, 1)
             if property.params["VALUE"] == "text":
-                validate_text(property.values[0])
+                validate_text(property.values[0], property)
             elif property.params["VALUE"] == "utc-offset":
-                validate_utc_offset(property.values[0])
+                validate_utc_offset(property.values[0], property)
             elif property.params["VALUE"] == "uri":
-                validate_uri(property.values[0])
+                validate_uri(property.values[0], property)
         else:
             values_count_required(property, 1, 1)
-            validate_utc_offset(property.values[0])
+            validate_utc_offset(property.values[0], property)
     elif property.name == "GEO":
         if version == "4.0":
             validate_value_parameter(property, ["uri"], text_allowed=False)
             values_count_required(property, 1, 1)
-            validate_uri(property.values[0])
+            validate_uri(property.values[0], property)
         else:
             values_count_required(property, 2, 2)
             for i in property.values:
@@ -269,28 +285,28 @@ def validate_property(property, version):
     elif property.name == "TITLE":
         validate_value_parameter(property, ["text"], text_allowed=False)
         values_count_required(property, 1, 1)
-        validate_uri(property.values[0])    
+        validate_uri(property.values[0], property)    
     elif property.name == "ROLE":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
-        validate_text(property.values[0])
+        validate_text(property.values[0], property)
     elif property.name == "ORG":
         validate_value_parameter(property, [])
         values_count_required(property, 2, 2)
-        validate_text(property.values[0])
+        validate_text(property.values[0], property)
     elif property.name == "MEMBER":
         validate_value_parameter(property, ["uri"], text_allowed=False)
         values_count_required(property, 1, 1)
-        validate_uri(property.values[0])
+        validate_uri(property.values[0], property)
     elif property.name == "RELATED":
         if version != "4.0":
             warnings.warn("Related property allowed only in version 4.0")
-        validate_value_parameter(property, ["uri"], param_required=True)
+        validate_value_parameter(property, ["uri"], text_allowed=True)
         values_count_required(property, 1, 1)
         if property.params["VALUE"] == "uri":
-            validate_uri(property.values[0])
+            validate_uri(property.values[0], property)
         else:
-            validate_text(property.values[0])
+            validate_text(property.values[0], property)
         if "TYPE" in property.params:
             if property.params["TYPE"] not in [
                 "contact", "acquaintance", "friend", "met",
@@ -303,4 +319,51 @@ def validate_property(property, version):
                 raise VCardValidationError("TYPE is incorrect", property)
             else:
                 raise VCardValidationError("TYPE not found", property)
-
+    elif property.name in ["CATEGORIES", "NOTE", "PRODID"]:
+        validate_value_parameter(property, [])
+        values_count_required(property, 1, 1)
+        validate_text_list(property.values[0], property)
+    elif property.name == "REV":
+        if version == "4.0":
+            validate_value_parameter(property, ["timestamp"], text_allowed=False)
+        values_count_required(property, 1, 1)
+        validate_datetime(property.values[0], None, property)
+    elif property.name == ["SORT-STRING", "CLASS"]:
+        values_count_required(property, 1, 1)
+        validate_text(property.values[0], property)
+    elif property.name == "SOUND":
+        validate_value_parameter(property, ["uri"], text_allowed=False)
+        values_count_required(property, 1, 1)
+        if "VALUE" in property.params:
+            if property.params["VALUE"] == "uri":
+                validate_uri(property.values[0])
+    elif property.name in ["UID", "KEY"]:
+        values_count_required(property, 1, 1)
+        if "VALUE" in property.params:
+            if property.params["VALUE"] == "uri":
+                validate_uri(property.values[0])
+            else:
+                validate_text(property.values[0])
+    elif property.name == ["FBURL", "CALADRURI", "CALURI", "URL"]:
+        validate_value_parameter(property, ["uri"], text_allowed=False)
+        values_count_required(property, 1, 1)
+        validate_uri(property.values[0])
+    elif property.name == "CLIENTPIDMAP":
+        values_count_required(property, 2, 2)
+        validate_integer(property.values[0])
+        validate_uri(property.values[1])
+    elif property.name == "AGENT":
+        values_count_required(property, 1, 1)
+        if "VALUE" in property.params:
+            if property.params["VALUE"] == "uri":
+                validate_uri(property.values[0])
+            else:
+                property.values[0] = property.values[0].decode('string_escape')
+    elif property.name in ["BIRTHDATE", "DEATHPLACE"]:
+        values_count_required(property, 1, 1)
+        validate_value_parameter(property, ["uri"])
+        if "VALUE" in property.params:
+            if property.params["VALUE"] == "uri":
+                validate_uri(property.values[0])
+            else:
+                validate_text(property.values[0])

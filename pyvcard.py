@@ -2,8 +2,10 @@ import enum
 import re
 import warnings
 import quopri
+import base64
 from pyvcard_regex import *
 from pyvcard_exceptions import *
+from pyvcard_validator import *
 
 validate_vcards = True
 
@@ -20,6 +22,8 @@ class _STATE(enum.Enum):
 def quoted_to_str(string):
     return quopri.decodestring(string)
 
+def str_to_quoted(string):
+    return quopri.encodestring(string)
 
 def strinteger(string):
     n = ""
@@ -29,12 +33,27 @@ def strinteger(string):
     return int(n)
 
 
+def unescape(string):
+    return string.decode('string_escape')
+
+def decode_property(property):
+    if "ENCODING" in property.params:
+        for i in range(len(property.values)):
+            if property.params["ENCODING"] == "QUOTED-PRINTABLE":
+                property.params[i] = quoted_to_str(property.params[i])
+            elif property.params["ENCODING"] in ["b", "BASE64"]:
+                property.params[i] = base64.decode(property.params[i])
+
 class _vcard_entry:
-    def __init__(self, name, values, params={}, group=None):
+    def __init__(self, name, values, params={}, group=None, version="4.0"):
         self._name = name
         self._params = params
-        self._values = values
+        self._values = list(values)
         self._group = group
+        validate_property(self, version)
+        decode_property(self)
+        self._values = tuple(self._values)
+
 
     def repr_vcard(self):
         string = self.name
@@ -131,7 +150,7 @@ def _parse_lines(strings):
         elif parsed:
             if parsed[0] == "VERSION":
                 version = "".join(parsed[1])
-            buf.append(_vcard_entry(*parsed))
+            buf.append(_vcard_entry(*parsed, version=version))
     return args
 
 
@@ -155,8 +174,15 @@ class _VCard:
         self._attrs = args
 
 
+def parse(source):
+    pass
+
+
 pth1 = "D:\\Мои файлы\\Папки по годам\\2019\\contacts.vcf"
 f = open(pth1, "r", encoding="utf-8").read()
-parser = _vcard_Parser(f)
-for i in parser.vcard()[0]._attrs:
-    print(i.repr_vcard())
+try:
+    parser = _vcard_Parser(f)
+    for i in parser.vcard()[0]._attrs:
+        print(i.repr_vcard())
+except VCardValidationError as e:
+    print(e.property.values)
