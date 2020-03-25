@@ -50,16 +50,16 @@ VALUE_TYPE = [
 
 def values_count_required(property, mincount, maxcount):
     if len(property.values) < mincount:
-        raise VCardValidationError(property, f"Values count must be >= {mincount}", property)
+        raise VCardValidationError(f"Values count must be >= {mincount}", property)
     elif len(property.values) > maxcount:
-        raise VCardValidationError(property, f"Values count must be <= {maxcount}", property)
+        raise VCardValidationError(f"Values count must be <= {maxcount}", property)
 
 
 def params_count_required(property, mincount, maxcount):
     if len(property.params) < mincount:
-        raise VCardValidationError(property, f"Values count must be >= {mincount}", property)
+        raise VCardValidationError(f"Values count must be >= {mincount}", property)
     elif len(property.params) > maxcount:
-        raise VCardValidationError(property, f"Values count must be <= {maxcount}", property)
+        raise VCardValidationError(f"Values count must be <= {maxcount}", property)
 
 
 def validate_value_parameter(property, values, param_required=False, text_allowed=True):

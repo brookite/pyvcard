@@ -3,6 +3,7 @@ import re
 import warnings
 import quopri
 import base64
+import traceback
 from pyvcard_regex import *
 from pyvcard_exceptions import *
 from pyvcard_validator import *
@@ -19,11 +20,11 @@ class _STATE(enum.Enum):
     END = 1
 
 
-def quoted_to_str(string):
-    return quopri.decodestring(string)
+def quoted_to_str(string, encoding="utf-8"):
+    return quopri.decodestring(string).decode(encoding)
 
-def str_to_quoted(string):
-    return quopri.encodestring(string)
+def str_to_quoted(string, encoding="utf-8"):
+    return quopri.encodestring(string).decode(encoding)
 
 def strinteger(string):
     n = ""
@@ -39,10 +40,12 @@ def unescape(string):
 def decode_property(property):
     if "ENCODING" in property.params:
         for i in range(len(property.values)):
-            if property.params["ENCODING"] == "QUOTED-PRINTABLE":
-                property.params[i] = quoted_to_str(property.params[i])
-            elif property.params["ENCODING"] in ["b", "BASE64"]:
-                property.params[i] = base64.decode(property.params[i])
+            if property.params["ENCODING"] == "quoted-printable":
+                if property.values[i] != '':
+                    property.values[i] = quoted_to_str(property.values[i])
+            elif property.params["ENCODING"] in ["b", "base64"]:
+                if property.values[i] != '':
+                    property.values[i] = base64.decode(property.values[i])
 
 class _vcard_entry:
     def __init__(self, name, values, params={}, group=None, version="4.0"):
@@ -50,7 +53,8 @@ class _vcard_entry:
         self._params = params
         self._values = list(values)
         self._group = group
-        validate_property(self, version)
+        if validate_vcards:
+            validate_property(self, version)
         decode_property(self)
         self._values = tuple(self._values)
 
@@ -59,8 +63,7 @@ class _vcard_entry:
         string = self.name
         c = 0
         for i in self.params:
-            if c > 0:
-                string += r'\;'
+            string += ";"
             if self.params[i]:
                 string += f"{i}={self._params[i]}"
             else:
@@ -100,6 +103,8 @@ def _unfold_lines(strings):
                 raise VCardFormatError("Illegal whitespace at string 1")
             lines[-1] += string[1:]
         elif string.startswith("="):
+            lines[-1] += string[1:]
+        elif string.startswith(";"):
             lines[-1] += string
         else:
             lines.append(string)
@@ -110,28 +115,38 @@ def _parse_line(string, version):
     m1 = re.match(VCARD_BORDERS, string)
     if m1:
         return _STATE.BEGIN if m1.group(3) == "BEGIN" else _STATE.END
-    m2 = re.match(CONTENTLINE, string)
+    if version != "2.1":
+        m2 = re.match(CONTENTLINE, string)
+    else:
+        m2 = re.match(CONTENTLINE_21, string)
     if m2:
         name = m2.group(3)
-        if version == "2.1":
-            params = re.findall(PARAM_21, m2.group(4))
-            params_dict = {}
-            for param in params:
-                params_dict[param[0]] = param[1]
+        if version != "2.1":
+            if m2.group(5):
+                params = re.findall(PARAM, m2.group(5))
+            else:
+                params = []
         else:
-            params = re.findall(PARAM, m2.group(4))
-            params_dict = {}
-            for param in params:
-                if len(param) == 1:
-                    params_dict[param[0].upper()] = None
+            if m2.group(5):
+                params = re.findall(PARAM_21, m2.group(5))
+            else:
+                params = []
+        params_dict = {}
+        for param in params:
+            param = tuple(filter(lambda x: x != "", param))
+            if len(param) == 1:
+                params_dict[param[0].upper()] = None
+            else:
+                if param[0] in params_dict:
+                    if type(params_dict[params[0]]) != list:
+                        params_dict[params[0].upper()] = [params_dict[params[0].upper()]]
+                    params_dict[params[0].upper()].append(params[1].lower())
                 else:
-                    if param[0] in params_dict:
-                        if type(params_dict[params[0]]) != list:
-                            params_dict[params[0].upper()] = [params_dict[params[0].upper()]]
-                        params_dict[params[0].upper()].append(params[1].lower())
-                    else:
-                        params_dict[param[0].upper()] = param[1].lower()
-        values = m2.group(9).split(r"\;")
+                    params_dict[param[0].upper()] = param[1].lower()
+        if version != "2.1":
+            values = m2.group(9).split(";")
+        else:
+            values = m2.group(10).split(";")
         group = m2.group(1) if m2.group(1) != "" else None
         return name, values, params_dict, group
     return None
@@ -178,11 +193,13 @@ def parse(source):
     pass
 
 
-pth1 = "D:\\Мои файлы\\Папки по годам\\2019\\contacts.vcf"
+pth1 = "D:\\Мои файлы\\Рабочий стол\\vcards\\contacts.vcf"
 f = open(pth1, "r", encoding="utf-8").read()
 try:
     parser = _vcard_Parser(f)
     for i in parser.vcard()[0]._attrs:
         print(i.repr_vcard())
+    print("DONE")
 except VCardValidationError as e:
+    traceback.print_exc()
     print(e.property.values)
