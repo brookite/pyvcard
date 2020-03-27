@@ -44,9 +44,11 @@ class VCardIndexer:
                 self._phones[entry.values[0]] = vcard
                 self._phones[strinteger(entry.values[0])] = vcard
             elif self._indexparams:
-                if entry.name in self._params:
+                if entry.name not in self._params:
                     self._params[entry.name] = {}
-                self._params[entry.name][";".join(entry.values)] = vcard
+                if ";".join(entry.values) not in self._params[entry.name]:
+                    self._params[entry.name][";".join(entry.values)] = []
+                self._params[entry.name][";".join(entry.values)].append(vcard)
 
     def __len__(self):
         return len(self._names) + len(self._phones)
@@ -65,7 +67,7 @@ class VCardIndexer:
         return self._params[param][value]
 
     def find_by_name(self, fn, case=False, fullmatch=True):
-        if fn in self._names:
+        if fn in self._names and fullmatch:
             return (self._names[fn])
         def filter_function(x):
             if not case:
@@ -82,7 +84,7 @@ class VCardIndexer:
         return tuple(set(map(map_function, filter(filter_function, self._names))))
     
     def find_by_phone(self, number, fullmatch=False, parsestr=True):
-        if number in self._phones:
+        if number in self._phones and fullmatch:
             return (self._phones[number])
         def filter_function(x):
             if parsestr:
@@ -121,8 +123,9 @@ class VCardIndexer:
         return tuple(set(map(map_function, filter(filter_function, self._phones))))
 
     def find_by_param(self, paramname, value, fullmatch=True):
-        if value in self._params[paramname]:
-            return (self._params[paramname][value]) 
+        if paramname in self._params:
+            if value in self._params[paramname] and fullmatch:
+                return (self._params[paramname][value]) 
         if hasattr(value, "__iter__"):
             value = ";".join(value)
         if value in self._params[paramname]:
@@ -133,12 +136,19 @@ class VCardIndexer:
             else:
                 return value in x
         map_function = lambda x: self._params[paramname][x]
-        return tuple(set(map(map_function, filter(filter_function, self._params[paramname]))))
+        s = []
+        lst = list(map(map_function, filter(filter_function, self._params[paramname])))
+        for i in lst:
+            for j in i:
+                s.append(i)
+        return tuple(set(s))
 
     def find_by_paramvalue(self, value, fullmatch=True):
         result = []
         for i in self._params:
-            result.append(self.find_by_param(i, value, fullmatch))
+            lst = self.find_by_param(i, value, fullmatch)
+            for j in lst:
+                result.append(j)
         return tuple(set(result))
 
 
@@ -424,7 +434,7 @@ class _VCard:
                 if i.name == paramname:
                     if ";".join(i.values) == value and fullmatch:
                         return [self]
-                    elif ";".join(i.values) in value and not fullmatch:
+                    elif value in ";".join(i.values) and not fullmatch:
                         return [self]
 
     def find_by_paramvalue(self, value, fullmatch=True, indexsearch=False):
@@ -436,7 +446,7 @@ class _VCard:
             for i in self._attrs:
                 if ";".join(i.values) == value and fullmatch:
                     return [self]
-                elif ";".join(i.values) in value and not fullmatch:
+                elif value in ";".join(i.values) and not fullmatch:
                     return [self]
 
 class VCardSet:
@@ -446,6 +456,9 @@ class VCardSet:
 
     def __iter__(self):
         return iter(self._container)
+
+    def __len__(self):
+        return len(self._container)
 
     def add(self, vcard):
         if isinstance(vcard, _VCard):
@@ -519,12 +532,12 @@ class VCardSet:
 
     def find_by_paramvalue(self, value, fullmatch=True, indexsearch=True):
         if indexsearch and self._indexer:
-            return self._indexer.find_by_param(value, fullmatch)
+            return self._indexer.find_by_paramvalue(value, fullmatch)
         else:
             result = []
             for i in self:
                 for paramname in i:
-                    val = i.find_by_param(paramname, value, fullmatch)
+                    val = i.find_by_paramvalue(paramname, value, fullmatch)
                     if val:
                         for value in val:
                             result.append(value)
@@ -535,17 +548,16 @@ def parse(source, indexer=None):
     return _VCard_Parser(source, indexer)
 
 
-pth1 = "D:\\Мои файлы\\Рабочий стол\\vcards\\contacts.vcf"
+pth1 = "D:\\Мои файлы\\Рабочий стол\\vcards\\PIM00002.vcf"
 f = open(pth1, "r", encoding="utf-8").read()
 try:
-    indexer = VCardIndexer()
+    indexer = VCardIndexer(index_params=True)
     parser = parse(f, indexer)
     s = parser.vcard()
+    print(s)
     print(s._indexer)
-    for vcard in s.find_by_phone(0000, indexsearch=False):
-        print(vcard.repr_vcard())
     print("DONE")
-    # fix replacing contains
+    # make repr and str representation, multiply phone and name vcards
 except VCardValidationError as e:
     traceback.print_exc()
     print(e.property.values)
