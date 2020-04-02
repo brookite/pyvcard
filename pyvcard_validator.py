@@ -77,6 +77,9 @@ def validate_text(value, property=None):
     if not re.match(VALID_TEXT, value):
         raise VCardValidationError("Text isn't match", property)
 
+def validate_group(group, property=None):
+    if not re.match(GROUP, group):
+        raise VCardValidationError("Group isn't match", property)
 
 def validate_text_list(value, property=None):
     if not re.match(VALID_TEXTLIST, value):

@@ -7,6 +7,8 @@ import traceback
 from pyvcard_regex import *
 from pyvcard_exceptions import *
 from pyvcard_validator import *
+from pyvcard_converters import *
+from pyvcard_parsers import *
 
 validate_vcards = True
 
@@ -29,9 +31,16 @@ class VERSION(enum.Enum):
 class _STATE(enum.Enum):
     BEGIN = 0
     END = 1
+    
+
+class SOURCES(enum.Enum):
+    XML = 0
+    JSON = 1
+    VCF = 2
+    CSV = 3
 
 
-class VCardIndexer:
+class vCardIndexer:
     def __init__(self, index_params=False):
         self._names = {}
         self._indexparams = index_params
@@ -48,7 +57,7 @@ class VCardIndexer:
             self._vcards.append(vcard)
 
     def index(self, entry, vcard):
-        if isinstance(entry, _vcard_entry):
+        if isinstance(entry, _vCard_entry):
             if entry.name == "FN":
                 if entry.values[0] not in self._names:
                     self._names[entry.values[0]] = []
@@ -230,7 +239,7 @@ def decode_property(property):
                     property._values[i] = base64.decodebytes(property._values[i])
 
 
-class _vcard_entry:
+class _vCard_entry:
     def __init__(self, name, values, params={}, group=None, version="4.0"):
         self._name = name
         self._params = params
@@ -358,13 +367,13 @@ def _parse_line(string, version):
 
 def _parse_lines(strings, indexer=None):
     version = "4.0"
-    vcard = _VCard()
+    vcard = _vCard()
     args = []
     buf = []
     for string in strings:
         parsed = _parse_line(string, version)
         if parsed == _STATE.BEGIN:
-            vcard = _VCard()
+            vcard = _vCard()
             buf = []
         elif parsed == _STATE.END:
             vcard._attrs = buf
@@ -373,14 +382,14 @@ def _parse_lines(strings, indexer=None):
             if parsed[0] == "VERSION":
                 version = "".join(parsed[1])
                 vcard._set_version(version)
-            entry = _vcard_entry(*parsed, version=version)
+            entry = _vCard_entry(*parsed, version=version)
             if indexer:
                 indexer.index(entry, vcard)
             buf.append(entry)
     return args
 
 
-class _VCard_Parser:
+class _vCard_Parser:
     def __init__(self, source, indexer=None):
         self.indexer = indexer
         if type(source) == str:
@@ -401,14 +410,17 @@ class _VCard_Parser:
                 raise IOError("Source is not file")
 
     def vcard(self):
-        return VCardSet(self.__args, self.indexer)
+        return vCardSet(self.__args, self.indexer)
 
 
-class _VCard:
-    def __init__(self, args=[]):
+class _vCard:
+    def __init__(self, args=[], version=None):
+        if len(args) == 0:
+            warnings.warn("vCard is empty")
         self._attrs = args
         self._indexer = None
         self._version = None
+        
         
     @property
     def indexer(self):
@@ -449,6 +461,9 @@ class _VCard:
             return f"<VCard {self._version} object at {hex(id(self))}>"
         else:
             return f"<VCard object at {hex(id(self))}>"
+        
+    def __bytes__(self):
+        return self.repr_vcard().encode("utf-8")
 
     def repr_vcard(self, encode=False):
         string = "BEGIN:VCARD"
@@ -558,9 +573,12 @@ class _VCard:
                     return [self]
 
 
-class VCardSet(set):
+class vCardSet(set):
     def __init__(self, iter, indexer=None):
         super().__init__(iter)
+        for object in iter:
+            if not is_vcard(object):
+                raise TypeError("VCardSet requires VCard objects")
         self._indexer = indexer
         
     def add(self, vcard):
@@ -641,14 +659,114 @@ class VCardSet(set):
             return tuple(result)
 
 
+class _vCard_Converter:
+    def __init__(self, source):
+        if isinstance(source, _vCard):
+            self.source = source
+            self._value = source.repr_vcard()
+        else:
+            raise TypeError("Required VCard type")
+    
+    def file(self, filename):
+        with open(filename, "w") as f:
+            f.write(self._value)
+    
+    def string(self):
+        return self._value
+    
+    def bytes(self):
+        return bytes(self._value)
+    
+    def csv(self):
+        return _csv_Converter(self.source)
+    
+    def json(self):
+        return _jCard_Converter(self.source)
+    
+    def xml(self):
+        return xCard_Converter(self.source)
+
+
+class _vCard_Builder:
+    def __init__(self, version="4.0"):
+        self._properties = []
+        self._version = version
+    
+    def add_property(self, name, value, group=None, params={}):
+        if name == "VERSION":
+            warnings.warn("Version field isn't required")
+            return
+        if isinstance(value, str):
+            if ";" in value:
+                value = value.split(";")
+        elif isinstance(value, bytes):
+            value = base64.encodebytes(value).decode("utf-8")
+        elif hasattr(value, "__iter__"):
+            value = list(map(str, value))
+        else:
+            value = str(value)
+
+    def set_phone(self, number):
+        for i in self._properties:
+            if i.name == "TEL":
+                raise KeyError("Key already exists")
+        tel = _vCard_entry("TEL", [str(number)])
+        self.properties.append(tel)
+    
+    def set_name(self, name):
+        for i in self._properties:
+            if i.name == "N" or i.name == "FN":
+                raise KeyError("Key already exists")
+        if isinstance(name, str):
+            fname = name
+            name = name.split(" ")
+        elif hasattr(name, "__iter__"):
+            name = list(map(str, name))
+            fname = "".join(name)
+        else:
+            raise ValueError(f"Invalid argument: {name}")
+        self._properties.append(_vCard_entry("FN", [fname]))
+        self._properties.append(_vCard_entry("N", name))
+            
+    
+    def set_version(self, version):
+        if version in ["2.1", "3.0", "4.0"]:
+            self._version = version
+    
+    def build(self):
+        if len(self._properties) != 0:
+            return _vCard(*self._properties)
+        else:
+            raise ValueError("Empty vCard")
+    
+    def clear(self):
+        self._properties = []
+
+
 def parse(source, indexer=None):
-    return _VCard_Parser(source, indexer)
+    return _vCard_Parser(source, indexer)
+
+
+def convert(source):
+    return _vCard_Converter(source)
+
+
+def parse_from(type, source):
+    pass
+
+
+def builder():
+    return _vCard_Builder()
+
+
+def is_vcard(object):
+    return isinstance(object, _vCard)
 
 
 pth1 = "D:\\Мои файлы\\Рабочий стол\\vcards\\PIM00002.vcf"
 f = open(pth1, "r", encoding="utf-8").read()
 try:
-    indexer = VCardIndexer(index_params=True)
+    indexer = vCardIndexer(index_params=True)
     parser = parse(f, indexer)
     s = parser.vcard()
     for i in s:
