@@ -678,10 +678,10 @@ class _vCard_Converter:
         return bytes(self._value)
     
     def csv(self):
-        return _csv_Converter(self.source)
+        return csv_Converter(self.source)
     
     def json(self):
-        return _jCard_Converter(self.source)
+        return jCard_Converter(self.source)
     
     def xml(self):
         return xCard_Converter(self.source)
@@ -761,6 +761,17 @@ def builder():
 
 def is_vcard(object):
     return isinstance(object, _vCard)
+
+def parse_name_property(prop):
+    result = None
+    if prop.name == "N":
+        result = {}
+        result["surname"] = prop.values[0]
+        result["given_name"] = prop.values[1]
+        result["additional_name"] = prop.values[2]
+        result["prefix"] = prop.values[3]
+        result["suffix"] = prop.values[4]
+    return result
 
 
 pth1 = "D:\\Мои файлы\\Рабочий стол\\vcards\\PIM00002.vcf"

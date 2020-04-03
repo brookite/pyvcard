@@ -1,22 +1,125 @@
-class _csv_Converter:
+import xml.etree.ElementTree as et
+from pyvcard import is_vcard, unescape
+from pyvcard_validator import validate_uri
+from xml.dom import minidom
+import warnings
+
+class csv_Converter:
     def __init__(self, obj):
         self._object = obj
+        
+    @property
+    def object(self):
+        return self._object    
         
     def result(self):
         pass
 
 
-class _jCard_Converter:
+class jCard_Converter:
     def __init__(self, obj):
         self._object = obj
+    
+    @property
+    def object(self):
+        return self._object    
         
     def result(self):
         pass
 
 
-class _xCard_Converter:
+class xCard_Converter:
+    HEADER = "urn:ietf:params:xml:ns:vcard-4.0"
+    
     def __init__(self, obj):
         self._object = obj
         
+    @property
+    def object(self):
+        return self._object
+    
+    def _recognize_param_type(self, param, value):
+        if param == "LANGUAGE":
+            return "language-tag"
+        elif param == "PREF":
+            return "integer"
+        elif param in ["MEDIATYPE", "CALSCALE", "SORT-AS", "ALTID", "VALUE"]:
+            return "text"
+        elif param == "GEO":
+            return "uri"
+        elif param in ["PID", "TYPE"]:
+            if "," in value:
+                return "text-list"
+            else:
+                return "text"
+        elif param == "TZ":
+            try: 
+                validate_uri(value)
+                return "uri"
+            except:
+                return "text"
+        else:
+            return "unknown"
+        
+    def parse_vcard(self, vcardobj, root):
+        vcard = et.SubElement(root, "vcard")
+        for vcard_attr in vcardobj:
+            value_param = "unknown"
+            if vcard_attr.name == "XML":
+                element = et.parsestring(vcard_attr.values[0])
+                et.SubElement(vcard, element)
+            else:
+                attr = et.SubElement(vcard, vcard_attr.name.lower())
+                if len(vcard_attr.params) > 0:
+                    parameters = et.SubElement(attr, "parameters")
+                    for param in vcard_attr.params:
+                        if param == "VALUE":
+                            type_param = vcard_attr.params[param]
+                        else:
+                            param_node = et.SubElement(parameters, param.lower())
+                            param_type = self._recognize_param_type(param, vcard_attr.params[param])
+                            if param_type == "text-list":
+                                txtlst = attrs.params[param].split(",")
+                                for txt in txtlst:
+                                    pvalue_node = et.SubElement(param_node, "text")
+                                    pvalue_node.text = txt
+                            else:
+                                pvalue_node = et.SubElement(param_node, param_type)
+                                param_node = unescape(vcard_attr.params[param])
+            if vcard_attr.name == "N":
+                value_node = et.SubElement(vcard, "surname")
+                value_node.text = vcard_attr.values[0]
+                value_node = et.SubElement(vcard, "given")
+                value_node.text = vcard_attr.values[1]
+                value_node = et.SubElement(vcard, "additional")
+                value_node.text = vcard_attr.values[2]
+                value_node = et.SubElement(vcard, "prefix")
+                value_node.text = vcard_attr.values[3]
+                value_node = et.SubElement(vcard, "suffix")
+                value_node.text = vcard_attr.values[4]
+            else:
+                value = et.SubElement(vcard, type_param)
+                if len(vcard_attr) > 1:
+                    value.text = unescape(";".join(vcard_attr.values))
+                elif len(vcard_attr) == 1:
+                    value.text = unescape(vcard_attr.values[0])
+        return vcard
+        
     def result(self):
-        pass
+        root = et.Element("vcards", xmlns=self.HEADER)
+        if hasattr(self.object, "__iter__"):
+            for vcardobj in self.object:
+                if vcardobj.version != "4.0":
+                    warnings.warn("xCard version below 4.0 may not conform to the standard")
+                self.parse_vcard(vcardobj, root)
+        else:
+            if self.object.version != "4.0":
+                warnings.warn("xCard version below 4.0 may not conform to the standard")            
+            self.parse_vcard(self.object, root)
+        header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        rough_string = et.tostring(root, 'utf-8')
+        reparsed = minidom.parseString(rough_string)
+        return header + reparsed.toprettyxml(indent='t')   
+                    
+                            
+                        
