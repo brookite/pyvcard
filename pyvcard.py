@@ -22,7 +22,7 @@ class VERSION(enum.Enum):
             return VERSION.V3
         elif version == "4.0":
             return VERSION.V4
-    
+
     V2_1 = "2.1"
     V3 = "3.0"
     V4 = "4.0"
@@ -31,7 +31,7 @@ class VERSION(enum.Enum):
 class _STATE(enum.Enum):
     BEGIN = 0
     END = 1
-    
+
 
 class SOURCES(enum.Enum):
     XML = 0
@@ -62,6 +62,11 @@ class vCardIndexer:
                 if entry.values[0] not in self._names:
                     self._names[entry.values[0]] = []
                 self._names[entry.values[0]].append(vcard)
+            elif entry.name == "N":
+                name = ";".join(entry.values)
+                if name not in self._names:
+                    self._names[name] = []
+                self._names[name].append(vcard)
             elif entry.name == "TEL":
                 if entry.values[0] not in self._phones:
                     self._phones[entry.values[0]] = []
@@ -263,7 +268,7 @@ class _vCard_entry:
         expect_quopri = False
         if "ENCODING" in self._params:
             if self._params["ENCODING"] == "QUOTED-PRINTABLE" and encode:
-                except_quopri = True
+                expect_quopri = True
                 for i in range(len(values)):
                     if values[i] != "":
                         values[i] = str_to_quoted(values[i])
@@ -409,7 +414,7 @@ class _vCard_Parser:
             else:
                 raise IOError("Source is not file")
 
-    def vcard(self):
+    def vcards(self):
         return vCardSet(self.__args, self.indexer)
 
 
@@ -420,16 +425,15 @@ class _vCard:
         self._attrs = args
         self._indexer = None
         self._version = None
-        
-        
+
     @property
     def indexer(self):
         return self._indexer
-    
+
     @property
     def version(self):
         return VERSION.get(self._version)
-        
+
     def contact_data(self):
         obj = {}
         for i in self:
@@ -437,31 +441,40 @@ class _vCard:
                 obj["name"] = i.values[0]
             elif i.name == "TEL":
                 obj["number"] = strinteger(i.values[0])
+            elif i.name == "N":
+                obj["struct_name"] = ";".join(i.values)
         return obj
-    
+
     def contact_name(self):
         name = None
         for i in self:
             if i.name == "FN":
                 name = i.values[0]
         return name
-    
+
+    def contact_structname(self):
+        name = None
+        for i in self:
+            if i.name == "FN":
+                name = i.values[0]
+        return name
+
     def contact_number(self):
         name = None
         for i in self:
-            if i.name == "TEL":
-                name = strinteger(i.values[0])
-        return name    
-        
+            if i.name == "N":
+                obj["struct_name"] = ";".join(i.values)
+        return name
+
     def _set_version(self, version):
         self._version = version
-        
+
     def __repr__(self):
         if self._version is not None:
             return f"<VCard {self._version} object at {hex(id(self))}>"
         else:
             return f"<VCard object at {hex(id(self))}>"
-        
+
     def __bytes__(self):
         return self.repr_vcard().encode("utf-8")
 
@@ -580,7 +593,7 @@ class vCardSet(set):
             if not is_vcard(object):
                 raise TypeError("VCardSet requires VCard objects")
         self._indexer = indexer
-        
+
     def add(self, vcard):
         if isinstance(vcard, _VCard):
             super().add(vcard)
@@ -666,23 +679,23 @@ class _vCard_Converter:
             self._value = source.repr_vcard()
         else:
             raise TypeError("Required VCard type")
-    
+
     def file(self, filename):
         with open(filename, "w") as f:
             f.write(self._value)
-    
+
     def string(self):
         return self._value
-    
+
     def bytes(self):
         return bytes(self._value)
-    
+
     def csv(self):
         return csv_Converter(self.source)
-    
+
     def json(self):
         return jCard_Converter(self.source)
-    
+
     def xml(self):
         return xCard_Converter(self.source)
 
@@ -691,8 +704,8 @@ class _vCard_Builder:
     def __init__(self, version="4.0"):
         self._properties = []
         self._version = version
-    
-    def add_property(self, name, value, group=None, params={}):
+
+    def add_property(self, name, value, params={}, group=None):
         if name == "VERSION":
             warnings.warn("Version field isn't required")
             return
@@ -712,7 +725,7 @@ class _vCard_Builder:
                 raise KeyError("Key already exists")
         tel = _vCard_entry("TEL", [str(number)])
         self.properties.append(tel)
-    
+
     def set_name(self, name):
         for i in self._properties:
             if i.name == "N" or i.name == "FN":
@@ -727,18 +740,17 @@ class _vCard_Builder:
             raise ValueError(f"Invalid argument: {name}")
         self._properties.append(_vCard_entry("FN", [fname]))
         self._properties.append(_vCard_entry("N", name))
-            
-    
+
     def set_version(self, version):
         if version in ["2.1", "3.0", "4.0"]:
             self._version = version
-    
+
     def build(self):
         if len(self._properties) != 0:
             return _vCard(*self._properties)
         else:
             raise ValueError("Empty vCard")
-    
+
     def clear(self):
         self._properties = []
 
@@ -762,6 +774,7 @@ def builder():
 def is_vcard(object):
     return isinstance(object, _vCard)
 
+
 def parse_name_property(prop):
     result = None
     if prop.name == "N":
@@ -779,7 +792,7 @@ f = open(pth1, "r", encoding="utf-8").read()
 try:
     indexer = vCardIndexer(index_params=True)
     parser = parse(f, indexer)
-    s = parser.vcard()
+    s = parser.vcards()
     for i in s:
         print(i.contact_data().values())
     print("DONE")
