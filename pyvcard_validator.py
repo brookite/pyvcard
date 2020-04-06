@@ -48,6 +48,15 @@ VALUE_TYPE = [
     "utc-offset", "language-tag"
 ]
 
+
+def validate_bool_wrapper(validator_func):
+    try:
+        validator_func()
+        return True
+    except Exception:
+        return False
+
+
 def values_count_required(property, mincount, maxcount):
     if len(property.values) < mincount:
         raise VCardValidationError(f"Values count must be >= {mincount}", property)
@@ -66,7 +75,7 @@ def validate_value_parameter(property, values, param_required=False, text_allowe
     if "VALUE" in property.params:
         val = property.params["VALUE"].lower()
         if property.params["VALUE"].lower() in values or \
-            (property.params["VALUE"] == "text" & text_allowed):
+                (property.params["VALUE"] == "text" & text_allowed):
             raise VCardValidationError(f"VALUE param {val} not found", property)
     else:
         if param_required:
@@ -77,9 +86,11 @@ def validate_text(value, property=None):
     if not re.match(VALID_TEXT, value):
         raise VCardValidationError("Text isn't match", property)
 
+
 def validate_group(group, property=None):
     if not re.match(GROUP, group):
         raise VCardValidationError("Group isn't match", property)
+
 
 def validate_text_list(value, property=None):
     if not re.match(VALID_TEXTLIST, value):
@@ -95,8 +106,8 @@ def validate_datetime(value, subtype, property=None):
         pattern = VALID_DATE
     elif subtype is None:
         if not any(re.match(VAILD_TIMESTAMP, value), re.match(VALID_DATE, value),
-            re.match(VALID_TIME, value)            
-            ):
+                   re.match(VALID_TIME, value)
+                   ):
             raise VCardValidationError("Date or time isn't match", property)
     else:
         raise ValueError("Incorrect subtype", property)
@@ -115,12 +126,12 @@ def validate_integer(value, property=None):
 
 
 def validate_utc_offset(value, property=None):
-   if re.match(VALID_INTEGER, value) is not None:
+    if re.match(VALID_INTEGER, value) is not None:
         raise VCardValidationError("UTC offset isn't match", property)
 
 
 def validate_language_tag(value, property=None):
-   if re.match(LANG_TAG, value) is not None:
+    if re.match(LANG_TAG, value) is not None:
         raise VCardValidationError("Language Tag isn't match", property)
 
 
@@ -153,12 +164,22 @@ def validate_parameter(property):
         elif param == "PREF":
             i = int(property.params[param])
             if i > 100 or i < 1:
-                raise VCardValidationError("PREF param has invalid parameter", property)   
+                raise VCardValidationError("PREF param has invalid parameter", property)
         elif param == "PID":
             if not re.match(r"(\d+)(.(\d+))*(,(\d+)(.(\d+)))*", property.params[param]):
                 raise VCardValidationError("PID param has invalid parameter", property)
         elif param == "SORT-AS":
             if not re.match(r"\"(\w+)(,(\w+))*\"", property.params[param]):
+                raise VCardValidationError("SORT-AS param has invalid parameter", property)
+        elif param == "LEVEL":
+            values = [
+                "beginner", "average", "expert",
+                "high", "medium", "low"
+            ]
+            if property.params[param] not in values:
+                raise VCardValidationError("Incorrect LEVEL parameter value", property)
+        elif param == "INDEX":
+            if not re.match(VALID_INTEGER, property.params[param]):
                 raise VCardValidationError("SORT-AS param has invalid parameter", property)
 
 
@@ -284,11 +305,11 @@ def validate_property(property, version):
         else:
             values_count_required(property, 2, 2)
             for i in property.values:
-                validate_float(i)                 
+                validate_float(i)
     elif property.name == "TITLE":
         validate_value_parameter(property, ["text"], text_allowed=False)
         values_count_required(property, 1, 1)
-        validate_uri(property.values[0], property)    
+        validate_uri(property.values[0], property)
     elif property.name == "ROLE":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
@@ -370,3 +391,6 @@ def validate_property(property, version):
                 validate_uri(property.values[0])
             else:
                 validate_text(property.values[0])
+    elif property.name in ["HOBBY", "EXPERTISE", "INTEREST", "ORG-DIRECTORY"]:
+        values_count_required(property, 1, 1)
+        validate_value_parameter(property, [])

@@ -34,10 +34,10 @@ class _STATE(enum.Enum):
 
 
 class SOURCES(enum.Enum):
-    XML = 0
-    JSON = 1
-    VCF = 2
-    CSV = 3
+    XML = "xml"
+    JSON = "json"
+    VCF = "vcf"
+    CSV = "csv"
 
 
 class vCardIndexer:
@@ -707,7 +707,7 @@ class _vCard_Builder:
 
     def add_property(self, name, value, params={}, group=None):
         if name == "VERSION":
-            warnings.warn("Version field isn't required")
+            warnings.warn("Version field isn't required, use set_version method")
             return
         if isinstance(value, str):
             if ";" in value:
@@ -744,6 +744,7 @@ class _vCard_Builder:
     def set_version(self, version):
         if version in ["2.1", "3.0", "4.0"]:
             self._version = version
+            self.add_property("VERSION", version)
 
     def build(self):
         if len(self._properties) != 0:
@@ -797,6 +798,7 @@ try:
         print(i.contact_data().values())
     print("DONE")
     # vcard builder, converter
+    # _VCard.__getitem__ must accept string param
 except VCardValidationError as e:
     traceback.print_exc()
     print(e.property.values)

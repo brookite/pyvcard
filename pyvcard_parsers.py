@@ -2,6 +2,7 @@ import xml.etree.ElementTree as et
 from pyvcard import builder, parse
 from csv import DictReader
 import io
+import json
 
 
 def get_string(self, obj):
@@ -16,7 +17,7 @@ def get_string(self, obj):
         else:
             raise ValueError("File is closed")
     else:
-        raise ValueError("Required xcard object string or file descriptor")
+        raise ValueError("Required specific object string or file descriptor")
 
 
 class xCard_Parser:
@@ -40,6 +41,9 @@ class xCard_Parser:
                 factory = builder()
                 factory.set_version("4.0")
                 params = {}
+                if node[0].name == "group":
+                    group = node[0]["name"]
+                    node = node[0]
                 for vcard_data in node:
                     name = vcard_data.name.upper()
                     for attr in vcard_data:
@@ -75,7 +79,7 @@ class xCard_Parser:
                                 value = attr.text.split(";")
                             else:
                                 value = [et.tostring(attr, 'utf-8')]
-                    factory.add_property(name, value, params=params)
+                    factory.add_property(name, value, group=group, params=params)
                 vcards.append(factory.build())
         return vcards
 
@@ -92,3 +96,25 @@ class csv_Parser:
         for data in raw:
             s += data["vCard"]
         return parse(s).vcards()
+
+
+class jCard_Parser:
+    class jCard_ValidationError(Exception):
+        pass
+
+    def __init__(self, source):
+        if isinstance(source, str):
+            self.source = json.loads(source)
+        else:
+            self.source = source
+
+    def vcards(self):
+        if self.source[0] == "vcard":
+            pass
+        else:
+            for vcard in self.source:
+                if vcard[0] != "vcard":
+                    raise self.jCard_ValidationError("jCard isn't match to standard")
+                for data in vcard:
+                    name = data[0].upper()
+                    pass

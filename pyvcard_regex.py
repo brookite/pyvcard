@@ -1,4 +1,4 @@
-import re 
+import re
 
 GROUP = re.compile(r"(\d|\w|-)+")
 NAME = re.compile(r"([\d\w-]+)")
@@ -10,12 +10,12 @@ DIGIT = re.compile(r"0-9")
 DQUOTE = re.compile(r"\"")
 HTAB = re.compile(r"\t")
 SP = re.compile(r" ")
-VCHAR= re.compile(r"\x21-\x7E")
+VCHAR = re.compile(r"\x21-\x7E")
 WSP = re.compile(r"{}{}".format(SP.pattern, HTAB.pattern))
 QSAFE_CHAR = re.compile(r"[{}!\x23-x7E\w]".format(WSP.pattern))
 SAFE_CHAR = re.compile(r"[{}!\x23-\x39\x3C-\x7E\w]".format(WSP.pattern))
 VALUE_CHAR = re.compile(r"[{}{}\w]".format(WSP.pattern, VCHAR.pattern))
-PARAM_VALUE= re.compile(r"({}+|\"{}+\")".format(SAFE_CHAR.pattern, QSAFE_CHAR.pattern))
+PARAM_VALUE = re.compile(r"({}+|\"{}+\")".format(SAFE_CHAR.pattern, QSAFE_CHAR.pattern))
 PARAM_NAME = NAME
 VALUE = re.compile(r"({}*)".format(VALUE_CHAR.pattern))
 PARAM = re.compile(r"{}\={}*\,*{}*".format(PARAM_NAME.pattern, PARAM_VALUE.pattern, PARAM_VALUE.pattern))
