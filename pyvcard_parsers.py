@@ -21,8 +21,9 @@ def get_string(self, obj):
 
 
 class xCard_Parser:
-    def __init__(self, xcard):
+    def __init__(self, xcard, indexer=None):
         self.xcard = xcard
+        self.indexer = indexer
 
     def _is_supported_tag(self, name):
         return name.lower() in [
@@ -38,7 +39,7 @@ class xCard_Parser:
         root = tree.getroot()
         for node in root:
             if node.name == "vcard":
-                factory = builder()
+                factory = builder(self.indexer)
                 factory.set_version("4.0")
                 params = {}
                 if node[0].name == "group":
@@ -85,8 +86,9 @@ class xCard_Parser:
 
 
 class csv_Parser:
-    def __init__(self, csv):
+    def __init__(self, csv, indexer=None):
         self.csv = csv
+        self.indexer = indexer
 
     def vcards(self):
         strio = io.StringIO(get_string(self.csv))
@@ -95,26 +97,50 @@ class csv_Parser:
         s = ''
         for data in raw:
             s += data["vCard"]
-        return parse(s).vcards()
+        return parse(s, self.indexer).vcards()
 
 
 class jCard_Parser:
     class jCard_ValidationError(Exception):
         pass
 
-    def __init__(self, source):
+    def __init__(self, source, indexer=None):
+        self.indexer = indexer
         if isinstance(source, str):
             self.source = json.loads(source)
         else:
             self.source = source
 
+    def parse_vcard(self, vcard):
+        factory = builder(self.indexer)
+        factory.set_version("4.0")
+        if vcard[0] != "vcard":
+            raise self.jCard_ValidationError("jCard isn't match to standard")
+        for data in vcard:
+            name = data[0].upper()
+            params = data[1]
+            newparams = {}
+            group = None
+            for param in params:
+                if "group" in params:
+                    group = params["group"]
+                else:
+                    newparams[param.upper()] = params[param]
+            if data[2] != "unknown":
+                newparams["VALUE"] = data[2]
+            if len(data[3:]) == 1:
+                if hasattr(data[3:][0], "__iter__") and not isinstance(data[3:][0], str):
+                    value = data[3:][0]
+                else:
+                    value = data[3:]
+            factory.add_property(name, value, params, group)
+        return factory.build()
+
     def vcards(self):
+        vcards = []
         if self.source[0] == "vcard":
-            pass
+            vcards.append(self.parse_vcard(self.source))
         else:
             for vcard in self.source:
-                if vcard[0] != "vcard":
-                    raise self.jCard_ValidationError("jCard isn't match to standard")
-                for data in vcard:
-                    name = data[0].upper()
-                    pass
+                vcards.append(self.parse_vcard(vcard))
+        return vcards

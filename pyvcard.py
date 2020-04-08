@@ -256,6 +256,9 @@ class _vCard_entry:
         self._values = tuple(self._values)
         self._version = version
 
+    def __bool__(self):
+        return True
+
     def repr_vcard(self, encode=False):
         string = self.name
         for i in self._params:
@@ -370,6 +373,14 @@ def _parse_line(string, version):
     return None
 
 
+def parse_property(string):
+    c = _parse_line(string)
+    if c is None:
+        return None
+    else:
+        return _vCard_entry(*c)
+
+
 def _parse_lines(strings, indexer=None):
     version = "4.0"
     vcard = _vCard()
@@ -388,7 +399,7 @@ def _parse_lines(strings, indexer=None):
                 version = "".join(parsed[1])
                 vcard._set_version(version)
             entry = _vCard_entry(*parsed, version=version)
-            if indexer:
+            if indexer is not None:
                 indexer.index(entry, vcard)
             buf.append(entry)
     return args
@@ -425,6 +436,9 @@ class _vCard:
         self._attrs = args
         self._indexer = None
         self._version = None
+
+    def __bool__(self):
+        return True
 
     @property
     def indexer(self):
@@ -718,6 +732,8 @@ class _vCard_Builder:
             value = list(map(str, value))
         else:
             value = str(value)
+        entry = _vCard_entry(name, value, params, group)
+        self.properties.append(entry)
 
     def set_phone(self, number):
         for i in self._properties:
@@ -738,8 +754,10 @@ class _vCard_Builder:
             fname = "".join(name)
         else:
             raise ValueError(f"Invalid argument: {name}")
-        self._properties.append(_vCard_entry("FN", [fname]))
-        self._properties.append(_vCard_entry("N", name))
+        entry1 = _vCard_entry("FN", [fname])
+        self._properties.append(entry1)
+        entry2 = _vCard_entry("N", name)
+        self._properties.append(entry2)
 
     def set_version(self, version):
         if version in ["2.1", "3.0", "4.0"]:
@@ -748,7 +766,11 @@ class _vCard_Builder:
 
     def build(self):
         if len(self._properties) != 0:
-            return _vCard(*self._properties)
+            vcard = _vCard(*self._properties)
+            if self.indexer is not None:
+                for entry in vcard:
+                    self.indexer.index(entry, vcard)
+            return vcard
         else:
             raise ValueError("Empty vCard")
 
@@ -764,8 +786,15 @@ def convert(source):
     return _vCard_Converter(source)
 
 
-def parse_from(type, source):
-    pass
+def parse_from(type, source, indexer=None):
+    if type == SOURCES.XML:
+        return xCard_Converter(source, indexer)
+    elif type == SOURCES.JSON:
+        return jCard_Converter(source, indexer)
+    elif type == SOURCES.CSV:
+        return csv_Converter(source, indexer)
+    elif type == SOURCES.VCF:
+        return parse(source, indexer)
 
 
 def builder():
@@ -797,8 +826,6 @@ try:
     for i in s:
         print(i.contact_data().values())
     print("DONE")
-    # vcard builder, converter
-    # _VCard.__getitem__ must accept string param
 except VCardValidationError as e:
     traceback.print_exc()
     print(e.property.values)
