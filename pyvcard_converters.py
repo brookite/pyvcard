@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as et
-from pyvcard import is_vcard, unescape, vCardSet
+import pyvcard
 from pyvcard_validator import validate_uri
 from xml.dom import minidom
 from csv import DictWriter
@@ -10,7 +10,7 @@ import json
 
 class csv_Converter:
     def __init__(self, obj):
-        if is_vcard(obj) or isinstance(obj, vCardSet):
+        if pyvcard.is_vcard(obj) or isinstance(obj, vCardSet):
             self._object = obj
         else:
             raise ValueError("Required vCardSet or vCard type")
@@ -34,7 +34,7 @@ class csv_Converter:
         names = ["Formatted name", "Name", "Tel. Number", "vCard"]
         writer = DictWriter(strio, fieldnames=names)
         writer.writeheader()
-        if isinstance(self._object, vCardSet):
+        if isinstance(self._object, pyvcard.vCardSet):
             for vcard in self._object:
                 self.write_vcard(vcard, writer)
         else:
@@ -111,7 +111,7 @@ class jCard_Converter:
 
     def result(self, return_obj=False):
         vcards = []
-        if isinstance(self._object, vCardSet):
+        if isinstance(self._object, pyvcard.vCardSet):
             for vcard in self._object:
                 self.write_vcard(vcard, vcards)
         else:
@@ -183,7 +183,7 @@ class xCard_Converter:
                                     pvalue_node.text = txt
                             else:
                                 pvalue_node = et.SubElement(param_node, param_type)
-                                param_node = unescape(vcard_attr.params[param])
+                                param_node = pyvcard.unescape(vcard_attr.params[param])
             if vcard_attr.name == "N":
                 value_node = et.SubElement(group, "surname")
                 value_node.text = vcard_attr.values[0]
@@ -198,9 +198,9 @@ class xCard_Converter:
             else:
                 value = et.SubElement(group, value_param)
                 if len(vcard_attr) > 1:
-                    value.text = unescape(";".join(vcard_attr.values))
+                    value.text = pyvcard.unescape(";".join(vcard_attr.values))
                 elif len(vcard_attr) == 1:
-                    value.text = unescape(vcard_attr.values[0])
+                    value.text = pyvcard.unescape(vcard_attr.values[0])
         return vcard
 
     def result(self):

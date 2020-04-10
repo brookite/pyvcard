@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as et
-from pyvcard import builder, parse
+import pyvcard
 from csv import DictReader
 import io
 import json
@@ -39,7 +39,7 @@ class xCard_Parser:
         root = tree.getroot()
         for node in root:
             if node.name == "vcard":
-                factory = builder(self.indexer)
+                factory = pyvcard.builder(self.indexer)
                 factory.set_version("4.0")
                 params = {}
                 if node[0].name == "group":
@@ -97,7 +97,7 @@ class csv_Parser:
         s = ''
         for data in raw:
             s += data["vCard"]
-        return parse(s, self.indexer).vcards()
+        return pyvcard.parse(s, self.indexer).vcards()
 
 
 class jCard_Parser:
@@ -112,7 +112,7 @@ class jCard_Parser:
             self.source = source
 
     def parse_vcard(self, vcard):
-        factory = builder(self.indexer)
+        factory = pyvcard.builder(self.indexer)
         factory.set_version("4.0")
         if vcard[0] != "vcard":
             raise self.jCard_ValidationError("jCard isn't match to standard")

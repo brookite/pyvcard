@@ -3,7 +3,6 @@ import re
 import warnings
 import quopri
 import base64
-import traceback
 from pyvcard_regex import *
 from pyvcard_exceptions import *
 from pyvcard_validator import *
@@ -51,6 +50,18 @@ class vCardIndexer:
     def __bool__(self):
         return True
 
+    @property
+    def names(self):
+        return self._names
+
+    @property
+    def phones(self):
+        return self._phones
+
+    @property
+    def params(self):
+        return self._params
+
     def setindex(self, vcard):
         if isinstance(vcard, _VCard):
             vcard._indexer = vcard
@@ -86,6 +97,24 @@ class vCardIndexer:
     def vcards(self):
         return tuple(self._vcards)
 
+    def difference_search(self, type, value, diff_func, k=85):
+        def filter_function(x):
+            x = str(x)
+            return diff_func(x, value) >= k
+
+        if type == "name" or type == "names":
+            array = set(filter(filter_function, self._names.values()))
+        elif type == "phone" or type == "phones":
+            array = set(filter(filter_function, self._phones.values()))
+        elif type == "param" or type == "params":
+            array = []
+            for param in self._params:
+                for values in self._params[param]:
+                    temp = set(filter(filter_function, self._params[param][values]))
+                    array += temp
+            array = set(array)
+        return array
+
     def get_name(self, fn):
         return self._names[fn]
 
@@ -111,8 +140,7 @@ class vCardIndexer:
             else:
                 return fn in value
 
-        map_function = lambda x: self._names[x]
-        lst = map(map_function, filter(filter_function, self._names))
+        lst = filter(filter_function, self._names.values())
         result = set()
         for i in lst:
             for j in i:
@@ -133,8 +161,7 @@ class vCardIndexer:
             else:
                 return str(number) in str(value)
 
-        map_function = lambda x: self._phones[x]
-        lst = map(map_function, filter(filter_function, self._phones))
+        lst = filter(filter_function, self._phones.values())
         result = set()
         for i in lst:
             for j in i:
@@ -152,8 +179,7 @@ class vCardIndexer:
                 value = x
             return str(value).endswith(str(number))
 
-        map_function = lambda x: self._phones[x]
-        lst = map(map_function, filter(filter_function, self._phones))
+        lst = filter(filter_function, self._phones.values())
         result = set()
         for i in lst:
             for j in i:
@@ -171,8 +197,7 @@ class vCardIndexer:
                 value = x
             return str(value).startswith(str(number))
 
-        map_function = lambda x: self._phones[x]
-        lst = map(map_function, filter(filter_function, self._phones))
+        lst = filter(filter_function, self._phones.values())
         result = set()
         for i in lst:
             for j in i:
@@ -194,9 +219,8 @@ class vCardIndexer:
             else:
                 return value in x
 
-        map_function = lambda x: self._params[paramname][x]
         s = []
-        lst = list(map(map_function, filter(filter_function, self._params[paramname])))
+        lst = list(filter(filter_function, self._params[paramname].values()))
         for i in lst:
             for j in i:
                 s.append(i)
@@ -370,6 +394,9 @@ def _parse_line(string, version):
             values = m2.group(10).split(";")
         group = m2.group(1) if m2.group(1) != "" else None
         return name, values, params_dict, group
+    else:
+        if string.strip() != "":
+            raise VCardFormatError(f"An parsing error occurred with string '{string}'")
     return None
 
 
@@ -416,8 +443,8 @@ class _vCard_Parser:
             self.__args = _parse_lines(source, self.indexer)
         else:
             if hasattr(source, "fileno"):
-                if not source.closed():
-                    source = source.readlines()
+                if not source.closed:
+                    source = source.read().split("\n")
                     source = _unfold_lines(source)
                     self.__args = _parse_lines(source, self.indexer)
                 else:
@@ -431,8 +458,6 @@ class _vCard_Parser:
 
 class _vCard:
     def __init__(self, args=[], version=None):
-        if len(args) == 0:
-            warnings.warn("vCard is empty")
         self._attrs = args
         self._indexer = None
         self._version = None
@@ -801,6 +826,13 @@ def builder():
     return _vCard_Builder()
 
 
+def openfile(file, mode="r", encoding=None, buffering=-1,
+             errors=None, newline=None, opener=None, indexer=None):
+    f = open(file, mode, encoding=encoding, buffering=buffering,
+             errors=errors, newline=newline, opener=opener)
+    return parse(f, indexer)
+
+
 def is_vcard(object):
     return isinstance(object, _vCard)
 
@@ -815,17 +847,3 @@ def parse_name_property(prop):
         result["prefix"] = prop.values[3]
         result["suffix"] = prop.values[4]
     return result
-
-
-pth1 = "D:\\Мои файлы\\Рабочий стол\\vcards\\PIM00002.vcf"
-f = open(pth1, "r", encoding="utf-8").read()
-try:
-    indexer = vCardIndexer(index_params=True)
-    parser = parse(f, indexer)
-    s = parser.vcards()
-    for i in s:
-        print(i.contact_data().values())
-    print("DONE")
-except VCardValidationError as e:
-    traceback.print_exc()
-    print(e.property.values)
