@@ -74,8 +74,7 @@ def params_count_required(property, mincount, maxcount):
 def validate_value_parameter(property, values, param_required=False, text_allowed=True):
     if "VALUE" in property.params:
         val = property.params["VALUE"].lower()
-        if property.params["VALUE"].lower() in values or \
-                (property.params["VALUE"] == "text" & text_allowed):
+        if val not in values or ((property.params["VALUE"] != "text") and text_allowed):
             raise VCardValidationError(f"VALUE param {val} not found", property)
     else:
         if param_required:
@@ -116,22 +115,22 @@ def validate_datetime(value, subtype, property=None):
 
 
 def validate_float(value, property=None):
-    if re.match(VALID_FLOAT, value) is not None:
+    if re.match(VALID_FLOAT, value) is None:
         raise VCardValidationError("Float isn't match", property)
 
 
 def validate_integer(value, property=None):
-    if re.match(VALID_INTEGER, value) is not None:
+    if re.match(VALID_INTEGER, value) is None:
         raise VCardValidationError("Integer isn't match", property)
 
 
 def validate_utc_offset(value, property=None):
-    if re.match(VALID_INTEGER, value) is not None:
+    if re.match(VALID_TZ, value) is None:
         raise VCardValidationError("UTC offset isn't match", property)
 
 
 def validate_language_tag(value, property=None):
-    if re.match(LANG_TAG, value) is not None:
+    if re.match(LANG_TAG, value) is None:
         raise VCardValidationError("Language Tag isn't match", property)
 
 
@@ -143,6 +142,7 @@ def validate_boolean(value, property=None):
 def validate_uri(value, property=None):
     parsed = urlparse(value)
     if parsed[0] == '' or (parsed[1] == '' and parsed[2] == ''):
+        print(value)
         raise VCardValidationError("URI is incorrect", property)
 
 
@@ -161,7 +161,7 @@ def validate_parameter(property):
     for param in property.params:
         if param == "LANGUAGE":
             validate_language_tag(property.params[param], property)
-        elif param == "PREF":
+        elif param == "PREF" and property.params[param] is not None:
             i = int(property.params[param])
             if i > 100 or i < 1:
                 raise VCardValidationError("PREF param has invalid parameter", property)
@@ -186,7 +186,7 @@ def validate_parameter(property):
 def validate_property(property, version):
     validate_parameter(property)
     if property.name == "PROFILE":
-        if property.value.lower() != "vcard":
+        if property.values[0].lower() != "vcard":
             raise VCardValidationError(property, "Profile must be with VALUE=VCARD")
     elif property.name == "SOURCE":
         validate_value_parameter(property, ["uri"], text_allowed=False)
@@ -212,16 +212,14 @@ def validate_property(property, version):
         values_count_required(property, 1, 1)
         validate_text_list(property.values[0], property)
     elif property.name in ["PHOTO", "LOGO"]:
-        if version == "4.0":
-            validate_value_parameter(property, ["uri"], text_allowed=False)
-            values_count_required(property, 1, 1)
+        validate_value_parameter(property, ["uri"], text_allowed=False)
+        values_count_required(property, 1, 1)
+        if "ENCODING" not in property.params and "VALUE" not in property.params:
+            raise VCardValidationError("Encoding not found in params", property)
         else:
-            values_count_required(property, 1, 1)
-            if "ENCODING" not in property.params:
-                raise VCardValidationError("Encoding not found in params", property)
-            else:
-                if property.params["ENCODING"] != "b":
-                    raise VCardValidationError("Encoding must be 'b'", property)
+            if "ENCODING" in property.params:
+                if property.params["ENCODING"].lower() not in ["b", "base64"]:
+                    raise VCardValidationError("Encoding must be 'b' or 'base64' ", property)
     elif property.name in ["BDAY", "ANNIVERSARY", "DEATHDATE"]:
         validate_value_parameter(property, ["date-and-or-time"])
         values_count_required(property, 1, 1)
@@ -244,7 +242,7 @@ def validate_property(property, version):
                     if subvalue.lower() not in LABEL_TEL:
                         raise VCardValidationError(f"ADR type {subvalue} is unknown")
     elif property.name == "LABEL":
-        values_count_required(property, 7, 7)
+        values_count_required(property, 1, 1)
         if version == "4.0":
             warnings.warn("LABEL property is not defined in VCard 4.0")
         if "TYPE" in property.params:
@@ -307,16 +305,15 @@ def validate_property(property, version):
             for i in property.values:
                 validate_float(i)
     elif property.name == "TITLE":
-        validate_value_parameter(property, ["text"], text_allowed=False)
+        validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
-        validate_uri(property.values[0], property)
+        validate_text(property.values[0], property)
     elif property.name == "ROLE":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
         validate_text(property.values[0], property)
     elif property.name == "ORG":
         validate_value_parameter(property, [])
-        values_count_required(property, 2, 2)
         validate_text(property.values[0], property)
     elif property.name == "MEMBER":
         validate_value_parameter(property, ["uri"], text_allowed=False)

@@ -265,7 +265,7 @@ def decode_property(property):
                     property._values[i] = quoted_to_str(property._values[i])
             elif property._params["ENCODING"] in ["B", "BASE64"]:
                 if property._values[i] != '':
-                    property._values[i] = base64.decodebytes(property._values[i])
+                    property._values[i] = base64.b64decode(property._values[i].encode("utf-8"))
 
 
 class _vCard_entry:
@@ -300,7 +300,7 @@ class _vCard_entry:
                     if values[i] != "":
                         values[i] = str_to_quoted(values[i])
             elif self._params["ENCODING"] in ["B", "BASE64"]:
-                values[i] = base64.encodebytes(values[i]).decode("utf-8")
+                values[i] = base64.b64encode(values[i]).decode("utf-8")
         values = ";".join(values)
         string += f":{values}"
         return _fold_line(string, expect_quopri)
@@ -320,6 +320,10 @@ class _vCard_entry:
     @property
     def values(self):
         return tuple(self._values)
+
+    @property
+    def value(self):
+        return self._values[0]
 
     def __repr__(self):
         return f"<{self._name} property>"
@@ -356,7 +360,7 @@ def _fold_line(string, expect_quopri=False):
     return string
 
 
-def _parse_line(string, version):
+def _parse_line(string, version, line_num):
     m1 = re.match(VCARD_BORDERS, string)
     if m1:
         return _STATE.BEGIN if m1.group(3) == "BEGIN" else _STATE.END
@@ -366,14 +370,16 @@ def _parse_line(string, version):
         m2 = re.match(CONTENTLINE_21, string)
     if m2:
         name = m2.group(3)
+        if name in ["BEGIN", "END"]:
+            return None
         if version != "2.1":
-            if m2.group(5):
-                params = re.findall(PARAM, m2.group(5))
+            if m2.group(4):
+                params = re.findall(PARAM, m2.group(4))
             else:
                 params = []
         else:
-            if m2.group(5):
-                params = re.findall(PARAM_21, m2.group(5))
+            if m2.group(4):
+                params = re.findall(PARAM_21, m2.group(4))
             else:
                 params = []
         params_dict = {}
@@ -383,20 +389,18 @@ def _parse_line(string, version):
                 params_dict[param[0].upper()] = None
             else:
                 if param[0] in params_dict:
-                    if type(params_dict[params[0]]) != list:
-                        params_dict[params[0].upper()] = [params_dict[params[0].upper()]]
-                    params_dict[params[0].upper()].append(params[1].upper())
+                    params_dict[param[0].upper()] += "," + param[1].upper()
                 else:
                     params_dict[param[0].upper()] = param[1].upper()
         if version != "2.1":
             values = m2.group(9).split(";")
         else:
-            values = m2.group(10).split(";")
+            values = m2.group(11).split(";")
         group = m2.group(1) if m2.group(1) != "" else None
         return name, values, params_dict, group
     else:
         if string.strip() != "":
-            raise VCardFormatError(f"An parsing error occurred with string '{string}'")
+            raise VCardFormatError(f"An parsing error occurred with string '{string}' at line {line_num}")
     return None
 
 
@@ -412,23 +416,38 @@ def _parse_lines(strings, indexer=None):
     version = "4.0"
     vcard = _vCard()
     args = []
+    card_opened = False
+    is_version = False
     buf = []
+    i = 1
     for string in strings:
-        parsed = _parse_line(string, version)
+        parsed = _parse_line(string, version, i)
         if parsed == _STATE.BEGIN:
             vcard = _vCard()
+            if card_opened:
+                raise VCardFormatError(f"vCard didn't closed at line {i}")
+            card_opened = True
             buf = []
         elif parsed == _STATE.END:
             vcard._attrs = buf
+            if not card_opened:
+                raise VCardFormatError(f"Double closing or missing begin at line {i}")
+            card_opened = False
             args.append(vcard)
         elif parsed:
             if parsed[0] == "VERSION":
+                is_version = True
                 version = "".join(parsed[1])
                 vcard._set_version(version)
             entry = _vCard_entry(*parsed, version=version)
             if indexer is not None:
                 indexer.index(entry, vcard)
             buf.append(entry)
+        i += 1
+    if card_opened:
+        raise VCardFormatError(f"vCard didn't closed at line {i}")
+    if not is_version:
+        raise VCardFormatError("Missing VERSION property")
     return args
 
 
