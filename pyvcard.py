@@ -46,6 +46,7 @@ class vCardIndexer:
         self._phones = {}
         self._params = {}
         self._vcards = []
+        self._groups = {}
 
     def __bool__(self):
         return True
@@ -69,6 +70,10 @@ class vCardIndexer:
 
     def index(self, entry, vcard):
         if isinstance(entry, _vCard_entry):
+            if entry.group is not None:
+                if entry.group not in self._groups:
+                    self._groups[entry.group] = []
+                self._groups[entry.group].append(vcard)
             if entry.name == "FN":
                 if entry.values[0] not in self._names:
                     self._names[entry.values[0]] = []
@@ -116,13 +121,39 @@ class vCardIndexer:
         return array
 
     def get_name(self, fn):
-        return self._names[fn]
+        return tuple(self._names[fn])
 
     def get_phone(self, phone):
-        return self._phones[phone]
+        return tuple(self._phones[phone])
 
     def get_param(self, param, value):
-        return self._params[param][value]
+        return tuple(self._params[param][value])
+
+    def get_group(self, group):
+        return tuple(self._groups[group])
+
+    def find_by_group(self, group, fullmatch=True, case=False):
+        if group in self._names and fullmatch:
+            return tuple(self._names[fn])
+
+        def filter_function(x):
+            if not case:
+                value = x.lower()
+                nonlocal group
+                group = group.lower()
+            else:
+                value = x
+            if fullmatch:
+                return value == group
+            else:
+                return group in value
+
+        lst = filter(filter_function, self._groups.values())
+        result = set()
+        for i in lst:
+            for j in i:
+                result.add(j)
+        return tuple(result)
 
     def find_by_name(self, fn, case=False, fullmatch=True):
         if fn in self._names and fullmatch:
@@ -274,6 +305,9 @@ class _vCard_entry:
         self._params = params
         self._values = list(values)
         self._group = group
+        if self._group is not None:
+            if self._group.endswith("."):
+                self._group = group[:-1]
         if validate_vcards:
             validate_property(self, version)
         decode_property(self)
@@ -284,7 +318,7 @@ class _vCard_entry:
         return True
 
     def repr_vcard(self, encode=False):
-        string = self.name
+        string = f"{self.group}." + self.name
         for i in self._params:
             string += ";"
             if self._params[i]:
@@ -432,7 +466,10 @@ def _parse_lines(strings, indexer=None):
             vcard._attrs = buf
             if not card_opened:
                 raise VCardFormatError(f"Double closing or missing begin at line {i}")
+            if not is_version:
+                raise VCardFormatError("Missing VERSION property")
             card_opened = False
+            is_version = False
             args.append(vcard)
         elif parsed:
             if parsed[0] == "VERSION":
@@ -446,8 +483,6 @@ def _parse_lines(strings, indexer=None):
         i += 1
     if card_opened:
         raise VCardFormatError(f"vCard didn't closed at line {i}")
-    if not is_version:
-        raise VCardFormatError("Missing VERSION property")
     return args
 
 
@@ -562,20 +597,41 @@ class _vCard:
     def properties(self):
         return tuple(self._attrs)
 
+    def find_by_group(self, group, case=False, fullmatch=True, indexsearch=False):
+        if self._indexer and indexsearch:
+            self._indexer.find_by_group(group, case=case, fullmatch=fullmatch)
+        else:
+            for i in self._attrs:
+                if not case:
+                    group = group.lower()
+                if i.name == "FN":
+                    if not case:
+                        value = i.values[0].lower()
+                    else:
+                        value = i.values[0]
+                    if value == group and fullmatch:
+                        return [self]
+                    elif value in group and not fullmatch:
+                        return [self]
+            return []
+
     def find_by_name(self, fn, case=False, fullmatch=True, indexsearch=False):
         if self._indexer and indexsearch:
             self._indexer.find_by_name(fn, case, fullmatch)
         else:
             for i in self._attrs:
-                name = i.name
                 if not case:
-                    name = i.name.lower()
                     fn = fn.lower()
-                if name == "FN":
-                    if i.values[0] == fn and fullmatch:
+                if i.name == "FN":
+                    if not case:
+                        value = i.values[0].lower()
+                    else:
+                        value = i.values[0]
+                    if value == fn and fullmatch:
                         return [self]
-                    elif i.values[0] in fn and not fullmatch:
+                    elif value in fn and not fullmatch:
                         return [self]
+            return []
 
     def find_by_phone(self, number, fullmatch=False, parsestr=True, indexsearch=False):
         if self._indexer and indexsearch:
@@ -591,6 +647,7 @@ class _vCard:
                         return [self]
                     elif str(number) in str(value) and not fullmatch:
                         return [self]
+            return []
 
     def find_by_phone_endswith(self, number, parsestr=True, indexsearch=False):
         if self._indexer and indexsearch:
@@ -604,6 +661,7 @@ class _vCard:
                         value = i.values[0]
                     if str(value).endswith(str(number)):
                         return [self]
+            return []
 
     def find_by_phone_startswith(self, number, parsestr=True, indexsearch=False):
         if self._indexer and indexsearch:
@@ -617,6 +675,7 @@ class _vCard:
                         value = i.values[0]
                     if str(value).startswith(str(number)):
                         return(self)
+            return []
 
     def find_by_param(self, paramname, value, fullmatch=True, indexsearch=False):
         if self._indexer and indexsearch:
@@ -630,6 +689,7 @@ class _vCard:
                         return [self]
                     elif value in ";".join(i.values) and not fullmatch:
                         return [self]
+            return []
 
     def find_by_paramvalue(self, value, fullmatch=True, indexsearch=False):
         if self._indexer and indexsearch:
@@ -642,6 +702,7 @@ class _vCard:
                     return [self]
                 elif value in ";".join(i.values) and not fullmatch:
                     return [self]
+            return []
 
 
 class vCardSet(set):
@@ -655,6 +716,24 @@ class vCardSet(set):
     def add(self, vcard):
         if isinstance(vcard, _VCard):
             super().add(vcard)
+
+    def repr_vcard(self):
+        s = ""
+        for vcard in self:
+            s += vcard.repr_vcard()
+        return s
+
+    def find_by_group(self, group, case=False, fullmatch=True, indexsearch=True):
+        if indexsearch and self._indexer:
+            return self._indexer.find_by_group(group, case=case, fullmatch=fullmatch)
+        else:
+            result = set()
+            for i in self:
+                val = i.find_by_group(group, case, fullmatch, indexsearch)
+                if val:
+                    for value in val:
+                        result.add(value)
+            return tuple(result)
 
     def find_by_name(self, fn, case=False, fullmatch=True, indexsearch=True):
         if indexsearch and self._indexer:

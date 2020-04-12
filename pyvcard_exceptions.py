@@ -1,5 +1,7 @@
 class VCardFormatError(Exception):
-    pass
+    def __init__(self, msg, object=None):
+        super().__init__(msg)
+        self.object = object
 
 
 class VCardValidationError(Exception):
