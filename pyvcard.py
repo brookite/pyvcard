@@ -271,7 +271,7 @@ def quoted_to_str(string, encoding="utf-8"):
 
 
 def str_to_quoted(string, encoding="utf-8"):
-    return quopri.encodestring(string.encode(encoding)).decode(encoding)
+    return quopri.encodestring(string.encode(encoding)).decode(encoding).strip()
 
 
 def strinteger(string):
@@ -317,8 +317,12 @@ class _vCard_entry:
     def __bool__(self):
         return True
 
-    def repr_vcard(self, encode=False):
-        string = f"{self.group}." + self.name
+    def repr_vcard(self, encode=True):
+        if self.group is not None:
+            string = f"{self.group}."
+        else:
+            string = ""
+        string += self.name
         for i in self._params:
             string += ";"
             if self._params[i]:
@@ -328,13 +332,14 @@ class _vCard_entry:
         values = list(self._values)
         expect_quopri = False
         if "ENCODING" in self._params:
-            if self._params["ENCODING"] == "QUOTED-PRINTABLE" and encode:
+            if self._params["ENCODING"].upper() == "QUOTED-PRINTABLE" and encode:
                 expect_quopri = True
                 for i in range(len(values)):
                     if values[i] != "":
                         values[i] = str_to_quoted(values[i])
             elif self._params["ENCODING"] in ["B", "BASE64"]:
-                values[i] = base64.b64encode(values[i]).decode("utf-8")
+                for i in range(len(values)):
+                    values[i] = base64.b64encode(values[i]).decode("utf-8")
         values = ";".join(values)
         string += f":{values}"
         return _fold_line(string, expect_quopri)
@@ -394,7 +399,7 @@ def _fold_line(string, expect_quopri=False):
     return string
 
 
-def _parse_line(string, version, line_num):
+def _parse_line(string, version):
     m1 = re.match(VCARD_BORDERS, string)
     if m1:
         return _STATE.BEGIN if m1.group(3) == "BEGIN" else _STATE.END
@@ -434,7 +439,7 @@ def _parse_line(string, version, line_num):
         return name, values, params_dict, group
     else:
         if string.strip() != "":
-            raise VCardFormatError(f"An parsing error occurred with string '{string}' at line {line_num}")
+            raise VCardFormatError(f"An parsing error occurred with string '{string}'")
     return None
 
 
@@ -453,9 +458,8 @@ def _parse_lines(strings, indexer=None):
     card_opened = False
     is_version = False
     buf = []
-    i = 1
     for string in strings:
-        parsed = _parse_line(string, version, i)
+        parsed = _parse_line(string, version)
         if parsed == _STATE.BEGIN:
             vcard = _vCard()
             if card_opened:
@@ -480,7 +484,6 @@ def _parse_lines(strings, indexer=None):
             if indexer is not None:
                 indexer.index(entry, vcard)
             buf.append(entry)
-        i += 1
     if card_opened:
         raise VCardFormatError(f"vCard didn't closed at line {i}")
     return args
@@ -571,7 +574,7 @@ class _vCard:
     def __bytes__(self):
         return self.repr_vcard().encode("utf-8")
 
-    def repr_vcard(self, encode=False):
+    def repr_vcard(self, encode=True):
         string = "BEGIN:VCARD"
         for i in self:
             string += "\n"
@@ -706,7 +709,7 @@ class _vCard:
 
 
 class vCardSet(set):
-    def __init__(self, iter, indexer=None):
+    def __init__(self, iter=[], indexer=None):
         super().__init__(iter)
         for object in iter:
             if not is_vcard(object):
@@ -717,10 +720,11 @@ class vCardSet(set):
         if isinstance(vcard, _VCard):
             super().add(vcard)
 
-    def repr_vcard(self):
+    def repr_vcard(self, encode=True):
         s = ""
         for vcard in self:
-            s += vcard.repr_vcard()
+            s += vcard.repr_vcard(encode)
+            s += "\n"
         return s
 
     def find_by_group(self, group, case=False, fullmatch=True, indexsearch=True):
@@ -811,14 +815,14 @@ class vCardSet(set):
 
 class _vCard_Converter:
     def __init__(self, source):
-        if isinstance(source, _vCard):
+        if isinstance(source, _vCard) or isinstance(source, vCardSet):
             self.source = source
             self._value = source.repr_vcard()
         else:
             raise TypeError("Required VCard type")
 
-    def file(self, filename):
-        with open(filename, "w") as f:
+    def file(self, filename, encoding="utf-8"):
+        with open(filename, "w", encoding=encoding) as f:
             f.write(self._value)
 
     def string(self):
@@ -945,3 +949,6 @@ def parse_name_property(prop):
         result["prefix"] = prop.values[3]
         result["suffix"] = prop.values[4]
     return result
+
+# fix fold_line
+# fix quoted printable incorrect strings
