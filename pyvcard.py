@@ -271,8 +271,12 @@ def quoted_to_str(string, encoding="utf-8"):
 
 
 def str_to_quoted(string, encoding="utf-8"):
-    return quopri.encodestring(string.encode(encoding), quotetabs=True).decode(encoding).replace("\n", "=0A").replace("==", "=")
-    # FIX ME
+    string = string.encode(encoding)
+    qp = ""
+    for i in string:
+        i = hex(i)[2:]
+        qp += "=" + str(i)
+    return qp.upper()
 
 
 def strinteger(string):
@@ -337,7 +341,10 @@ class _vCard_entry:
                 expect_quopri = True
                 for i in range(len(values)):
                     if values[i] != "":
-                        values[i] = str_to_quoted(values[i])
+                        charset = "utf-8"
+                        if "CHARSET" in self._params:
+                            charset = self._params["CHARSET"]
+                        values[i] = str_to_quoted(values[i], charset)
             elif self._params["ENCODING"] in ["B", "BASE64"]:
                 for i in range(len(values)):
                     values[i] = base64.b64encode(values[i]).decode("utf-8")
@@ -962,5 +969,3 @@ def parse_name_property(prop):
         result["prefix"] = prop.values[3]
         result["suffix"] = prop.values[4]
     return result
-
-# fix quoted printable incorrect strings
