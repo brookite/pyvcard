@@ -271,7 +271,8 @@ def quoted_to_str(string, encoding="utf-8"):
 
 
 def str_to_quoted(string, encoding="utf-8"):
-    return quopri.encodestring(string.encode(encoding)).decode(encoding).strip()
+    return quopri.encodestring(string.encode(encoding), quotetabs=True).decode(encoding).replace("\n", "=0A").replace("==", "=")
+    # FIX ME
 
 
 def strinteger(string):
@@ -389,14 +390,26 @@ def _unfold_lines(strings):
 
 def _fold_line(string, expect_quopri=False):
     if len(string) > 75:
-        endindex = 74
-        if expect_quopri:
-            while string[endindex] != "=":
-                endindex -= 1
-            string = string[:endindex + 1] + "\n " + string[endindex + 1:]
-        else:
-            string = string[:endindex] + "\n " + string[endindex:]
-    return string
+        cuts = len(string) // 75
+        strings = []
+        begin = 0
+        length = 75
+        for i in range(cuts):
+            if i == 1:
+                length = 74
+            end = begin + length
+            tmp = string[begin:end]
+            if expect_quopri:
+                while tmp[-1] != "=":
+                    end -= 1
+                    tmp = string[begin:end]
+            strings.append(tmp)
+            begin = end
+        if len(string[begin:]) > 0:
+            strings.append(string[begin:])
+        return "\n ".join(strings)
+    else:
+        return string
 
 
 def _parse_line(string, version):
@@ -950,5 +963,4 @@ def parse_name_property(prop):
         result["suffix"] = prop.values[4]
     return result
 
-# fix fold_line
 # fix quoted printable incorrect strings
