@@ -5,7 +5,7 @@ import io
 import json
 
 
-def get_string(self, obj):
+def get_string(obj):
     if isinstance(obj, str):
         return obj
     elif hasattr(obj, "close"):
@@ -96,7 +96,7 @@ class csv_Parser:
         raw = list(reader)
         s = ''
         for data in raw:
-            s += data["vCard"]
+            s += data["vCard"] + "\n"
         return pyvcard.parse(s, self.indexer).vcards()
 
 

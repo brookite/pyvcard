@@ -551,7 +551,7 @@ class _vCard:
         return VERSION.get(self._version)
 
     def contact_data(self):
-        obj = {}
+        obj = dict.fromkeys(["name", "number", "struct_name"], None)
         for i in self:
             if i.name == "FN":
                 obj["name"] = i.values[0]
@@ -571,15 +571,15 @@ class _vCard:
     def contact_structname(self):
         name = None
         for i in self:
-            if i.name == "FN":
-                name = i.values[0]
+            if i.name == "TEL":
+                obj["struct_name"] = ";".join(i.values)
         return name
 
     def contact_number(self):
         name = None
         for i in self:
-            if i.name == "N":
-                obj["struct_name"] = ";".join(i.values)
+            if i.name == "TEL":
+                name = strinteger(i.values[0])
         return name
 
     def _set_version(self, version):
@@ -612,6 +612,12 @@ class _vCard:
             for i in self._attrs:
                 if i.name == key:
                     return i
+
+    def __contains__(self, key):
+        for i in self._attrs:
+            if i.name == key:
+                return True
+        return False
 
     def __iter__(self):
         return iter(self._attrs)
@@ -934,12 +940,12 @@ def convert(source):
 
 
 def parse_from(type, source, indexer=None):
-    if type == SOURCES.XML:
-        return xCard_Converter(source, indexer)
-    elif type == SOURCES.JSON:
-        return jCard_Converter(source, indexer)
-    elif type == SOURCES.CSV:
-        return csv_Converter(source, indexer)
+    if type == SOURCES.XML or type == "xml":
+        return xCard_Parser(source, indexer)
+    elif type == SOURCES.JSON or type == "json":
+        return jCard_Parser(source, indexer)
+    elif type == SOURCES.CSV or type == "csv":
+        return csv_Parser(source, indexer)
     elif type == SOURCES.VCF:
         return parse(source, indexer)
 

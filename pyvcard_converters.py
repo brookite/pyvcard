@@ -10,7 +10,7 @@ import json
 
 class csv_Converter:
     def __init__(self, obj):
-        if pyvcard.is_vcard(obj) or isinstance(obj, vCardSet):
+        if pyvcard.is_vcard(obj) or isinstance(obj, pyvcard.vCardSet):
             self._object = obj
         else:
             raise ValueError("Required vCardSet or vCard type")
@@ -19,14 +19,15 @@ class csv_Converter:
     def object(self):
         return self._object
 
-    def write_vcard(self, vcard, writer):
+    def write_vcard(self, vcard, writer, permanent=False):
         data = vcard.contact_data()
         row = {
             "Formatted name": data["name"],
             "Name": data["struct_name"],
             "Tel. Number": data["number"],
-            "vCard": vcard.repr_vcard()
         }
+        if not permanent:
+            row["vCard"] = vcard.repr_vcard()
         writer.writerow(row)
 
     def result(self):
@@ -39,6 +40,20 @@ class csv_Converter:
                 self.write_vcard(vcard, writer)
         else:
             self.write_vcard(self._object, writer)
+        val = strio.getvalue()
+        strio.close()
+        return val
+
+    def permanent_result(self):
+        strio = io.StringIO()
+        names = ["Formatted name", "Name", "Tel. Number"]
+        writer = DictWriter(strio, fieldnames=names)
+        writer.writeheader()
+        if isinstance(self._object, pyvcard.vCardSet):
+            for vcard in self._object:
+                self.write_vcard(vcard, writer, True)
+        else:
+            self.write_vcard(self._object, writer, True)
         val = strio.getvalue()
         strio.close()
         return val
@@ -150,7 +165,7 @@ class xCard_Converter:
             try:
                 validate_uri(value)
                 return "uri"
-            except:
+            except Exception:
                 return "text"
         else:
             return "unknown"
