@@ -537,7 +537,7 @@ class _vCard:
     def __init__(self, args=[], version=None):
         self._attrs = args
         self._indexer = None
-        self._version = None
+        self._version = version
 
     def __bool__(self):
         return True
@@ -868,14 +868,12 @@ class _vCard_Converter:
 
 
 class _vCard_Builder:
-    def __init__(self, version="4.0"):
+    def __init__(self, version="4.0", indexer=None):
+        self.indexer = indexer
         self._properties = []
         self._version = version
 
     def add_property(self, name, value, params={}, group=None):
-        if name == "VERSION":
-            warnings.warn("Version field isn't required, use set_version method")
-            return
         if isinstance(value, str):
             if ";" in value:
                 value = value.split(";")
@@ -886,14 +884,14 @@ class _vCard_Builder:
         else:
             value = str(value)
         entry = _vCard_entry(name, value, params, group)
-        self.properties.append(entry)
+        self._properties.append(entry)
 
     def set_phone(self, number):
         for i in self._properties:
             if i.name == "TEL":
                 raise KeyError("Key already exists")
         tel = _vCard_entry("TEL", [str(number)])
-        self.properties.append(tel)
+        self._properties.append(tel)
 
     def set_name(self, name):
         for i in self._properties:
@@ -919,7 +917,7 @@ class _vCard_Builder:
 
     def build(self):
         if len(self._properties) != 0:
-            vcard = _vCard(*self._properties)
+            vcard = _vCard(args=self._properties, version=self._version)
             if self.indexer is not None:
                 for entry in vcard:
                     self.indexer.index(entry, vcard)
@@ -939,7 +937,7 @@ def convert(source):
     return _vCard_Converter(source)
 
 
-def parse_from(type, source, indexer=None):
+def parse_from(source, type, indexer=None):
     if type == SOURCES.XML or type == "xml":
         return xCard_Parser(source, indexer)
     elif type == SOURCES.JSON or type == "json":
@@ -948,10 +946,12 @@ def parse_from(type, source, indexer=None):
         return csv_Parser(source, indexer)
     elif type == SOURCES.VCF:
         return parse(source, indexer)
+    else:
+        raise TypeError("Type isn't found")
 
 
-def builder():
-    return _vCard_Builder()
+def builder(indexer=None, version="4.0"):
+    return _vCard_Builder(indexer=indexer, version=version)
 
 
 def openfile(file, mode="r", encoding=None, buffering=-1,

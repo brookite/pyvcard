@@ -74,8 +74,9 @@ def params_count_required(property, mincount, maxcount):
 def validate_value_parameter(property, values, param_required=False, text_allowed=True):
     if "VALUE" in property.params:
         val = property.params["VALUE"].lower()
-        if val not in values or ((property.params["VALUE"] != "text") and text_allowed):
-            raise VCardValidationError(f"VALUE param {val} not found", property)
+        if val not in values:
+            if val != "text" and text_allowed:
+                raise VCardValidationError(f"VALUE param {val} is not found", property)
     else:
         if param_required:
             raise VCardValidationError("VALUE param not found", property)
@@ -258,6 +259,8 @@ def validate_property(property, version):
             for subvalue in subvalues:
                 if subvalue.lower() not in TYPE_TEL:
                     raise VCardValidationError(f"TEL type {subvalue} is unknown")
+        else:
+            length = 1
         if version != "4.0":
             length = 1
         values_count_required(property, length, length)

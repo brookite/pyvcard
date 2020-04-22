@@ -116,7 +116,7 @@ class jCard_Parser:
         factory.set_version("4.0")
         if vcard[0] != "vcard":
             raise self.jCard_ValidationError("jCard isn't match to standard")
-        for data in vcard:
+        for data in vcard[1:][0]:
             name = data[0].upper()
             params = data[1]
             newparams = {}
@@ -133,7 +133,7 @@ class jCard_Parser:
                     value = data[3:][0]
                 else:
                     value = data[3:]
-            factory.add_property(name, value, params, group)
+            factory.add_property(name, value, newparams, group)
         return factory.build()
 
     def vcards(self):

@@ -6,6 +6,7 @@ from csv import DictWriter
 import warnings
 import io
 import json
+import base64
 
 
 class csv_Converter:
@@ -76,7 +77,7 @@ class jCard_Converter:
                 "TZ", "TITLE", "ROLE", "TEL", "EMAIL",
                 "ORG", "CATEGORIES", "NOTES", "PRODID",
                 "EXPERTISE", "HOBBY", "INTEREST", "ORG-DIRECTORY",
-                "BIRTHPLACE", "DEATHPLACE"
+                "BIRTHPLACE", "DEATHPLACE", "VERSION"
             ]:
                 return "text"
             elif prop.name in [
@@ -96,8 +97,8 @@ class jCard_Converter:
                 return "unknown"
 
     def write_vcard(self, vcard, array):
-        vcard = ["vcard", []]
-        properties = vcard[1]
+        jcard = ["vcard", []]
+        properties = jcard[1]
         for prop in vcard:
             current = []
             current.append(prop.name.lower())
@@ -106,23 +107,34 @@ class jCard_Converter:
                 params["group"] = prop.group
             for param in prop.params:
                 if param.lower() != "value":
-                    if "," in params[param.lower()]:
-                        params[param.lower()] = prop.params[param].split(",")
+                    if prop.params[param] is not None:
+                        if "," in prop.params[param]:
+                            params[param.lower()] = prop.params[param].split(",")
+                        else:
+                            params[param.lower()] = prop.params[param]
                     else:
-                        params[param.lower()] = prop.params[param]
+                        params[param.lower()] = None
             current.append(params)
-            current.append(self.determine_type(param))
+            current.append(self.determine_type(prop))
             if len(prop.values) == 1:
-                current.append(prop.values[0])
+                # FIX quopri
+                if type(prop.values[0]) == bytes:
+                    val = base64.b64encode(prop.values[0]).decode("utf-8")
+                else:
+                    val = prop.values[0]
+                current.append(val)
             else:
                 arr = []
                 for i in prop.values:
-                    if "," in i:
-                        i = i.split(",")
+                    if type(prop.values[0]) == bytes:
+                        i = base64.b64encode(prop.values[0]).decode("utf-8")
+                    else:
+                        if "," in i:
+                            i = i.split(",")
                     arr.append(i)
                 current.append(arr)
             properties.append(current)
-        array.append(vcard)
+        array.append(jcard)
 
     def result(self, return_obj=False):
         vcards = []
@@ -134,7 +146,7 @@ class jCard_Converter:
         if return_obj:
             return vcards
         else:
-            return json.dumps(vcards)
+            return json.dumps(vcards, ensure_ascii=False)
 
 
 class xCard_Converter:
