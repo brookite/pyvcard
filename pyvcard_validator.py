@@ -255,21 +255,14 @@ def validate_property(property, version):
         validate_value_parameter(property, ["uri"])
         if "TYPE" in property.params:
             subvalues = property.params["TYPE"].split(",")
-            length = len(subvalues)
             for subvalue in subvalues:
                 if subvalue.lower() not in TYPE_TEL:
                     raise VCardValidationError(f"TEL type {subvalue} is unknown")
-        else:
-            length = 1
-        if version != "4.0":
-            length = 1
-        values_count_required(property, length, length)
     elif property.name == "EMAIL":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
         if "TYPE" in property.params:
             subvalues = property.params["TYPE"].split(",")
-            length = len(subvalues)
             for subvalue in subvalues:
                 if subvalue.lower() not in TYPE_EMAIL:
                     raise VCardValidationError(f"EMAIL type {subvalue} is unknown")

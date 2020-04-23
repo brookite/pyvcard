@@ -9,6 +9,23 @@ import json
 import base64
 
 
+def encoding_convert(source, params):
+    if "ENCODING" in params:
+        enc = params["ENCODING"].upper()
+    else:
+        enc = None
+    if type(source) in [tuple, list]:
+        for i in range(len(source)):
+            source[i] = encoding_convert(source[i], params)
+    else:
+        if enc == "QUOTED-PRINTABLE":
+            return pyvcard.str_to_quoted(source)
+        elif enc in ["BASE64", "B"]:
+            return base64.b64encode(source).decode("utf-8")
+        else:
+            return source
+
+
 class csv_Converter:
     def __init__(self, obj):
         if pyvcard.is_vcard(obj) or isinstance(obj, pyvcard.vCardSet):
@@ -117,21 +134,17 @@ class jCard_Converter:
             current.append(params)
             current.append(self.determine_type(prop))
             if len(prop.values) == 1:
-                # FIX quopri
-                if type(prop.values[0]) == bytes:
-                    val = base64.b64encode(prop.values[0]).decode("utf-8")
-                else:
-                    val = prop.values[0]
+                val = encoding_convert(prop.values[0], prop.params)
                 current.append(val)
             else:
                 arr = []
                 for i in prop.values:
                     if type(prop.values[0]) == bytes:
-                        i = base64.b64encode(prop.values[0]).decode("utf-8")
+                        i = encoding_convert(prop.values[0], prop.params)
                     else:
                         if "," in i:
                             i = i.split(",")
-                    arr.append(i)
+                    arr.append(encoding_convert(i, prop.params))
                 current.append(arr)
             properties.append(current)
         array.append(jcard)
@@ -184,17 +197,28 @@ class xCard_Converter:
 
     def parse_vcard(self, vcardobj, root):
         vcard = et.SubElement(root, "vcard")
+        group_name = None
         for vcard_attr in vcardobj:
             value_param = "unknown"
+            """
+            TASK: Fix conversion bugs:
+            1. Empty parameters
+            2. Value ';' and other values bug
+            3. Strange encoding bug
+            """
             if vcard_attr.group is not None:
-                group = et.SubElement(vcard, "group", name=vcard_attr.group)
+                if group_name != vcard_attr.group:
+                    group = et.SubElement(vcard, "group", name=vcard_attr.group)
+                    group_name = vcard_attr.group
+                else:
+                    group = group
             else:
                 group = vcard
             if vcard_attr.name == "XML":
-                element = et.parsestring(vcard_attr.values[0])
+                element = et.fromstring(vcard_attr.values[0])
                 et.SubElement(vcard, element)
             else:
-                attr = et.SubElement(vcard, vcard_attr.name.lower())
+                attr = et.SubElement(group, vcard_attr.name.lower())
                 if len(vcard_attr.params) > 0:
                     parameters = et.SubElement(attr, "parameters")
                     for param in vcard_attr.params:
@@ -204,7 +228,7 @@ class xCard_Converter:
                             param_node = et.SubElement(parameters, param.lower())
                             param_type = self._recognize_param_type(param, vcard_attr.params[param])
                             if param_type == "text-list":
-                                txtlst = attr.params[param].split(",")
+                                txtlst = vcard_attr.params[param].split(",")
                                 for txt in txtlst:
                                     pvalue_node = et.SubElement(param_node, "text")
                                     pvalue_node.text = txt
@@ -223,25 +247,20 @@ class xCard_Converter:
                 value_node = et.SubElement(group, "suffix")
                 value_node.text = vcard_attr.values[4]
             else:
-                value = et.SubElement(group, value_param)
-                if len(vcard_attr) > 1:
-                    value.text = pyvcard.unescape(";".join(vcard_attr.values))
-                elif len(vcard_attr) == 1:
-                    value.text = pyvcard.unescape(vcard_attr.values[0])
+                value = et.SubElement(attr, value_param)
+                if len(vcard_attr.values) > 1:
+                    value.text = encoding_convert(pyvcard.unescape(";".join(vcard_attr.values)), vcard_attr.params)
+                elif len(vcard_attr.values) == 1:
+                    value.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
         return vcard
 
     def result(self):
         root = et.Element("vcards", xmlns=self.HEADER)
         if hasattr(self.object, "__iter__"):
             for vcardobj in self.object:
-                if vcardobj.version != "4.0":
-                    warnings.warn("vCard version below 4.0 may not conform to the standard xCard")
                 self.parse_vcard(vcardobj, root)
         else:
-            if self.object.version != "4.0":
-                warnings.warn("vCard version below 4.0 may not conform to the standard xCard")
             self.parse_vcard(self.object, root)
-        header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
         rough_string = et.tostring(root, 'utf-8')
         reparsed = minidom.parseString(rough_string)
-        return header + reparsed.toprettyxml(indent='t')
+        return reparsed.toprettyxml()

@@ -290,7 +290,9 @@ def strinteger(string):
 
 
 def unescape(string):
-    return string.decode('string_escape')
+    if string is None or isinstance(string, bytes):
+        return string
+    return string.encode("utf-8").decode('unicode_escape')
 
 
 def decode_property(property):
@@ -609,9 +611,14 @@ class _vCard:
         if type(key) == int:
             return self._attrs[key]
         else:
+            arr = []
             for i in self._attrs:
                 if i.name == key:
-                    return i
+                    arr.append(i)
+            if len(arr) == 1:
+                return arr[0]
+            else:
+                return arr
 
     def __contains__(self, key):
         for i in self._attrs:
@@ -875,15 +882,14 @@ class _vCard_Builder:
 
     def add_property(self, name, value, params={}, group=None):
         if isinstance(value, str):
-            if ";" in value:
-                value = value.split(";")
-        elif isinstance(value, bytes):
-            value = base64.encodebytes(value).decode("utf-8")
-        elif hasattr(value, "__iter__"):
+            value = value.split(";")
+        elif hasattr(value, "__iter__") and not isinstance(value, str):
             value = list(map(str, value))
+        elif isinstance(value, bytes):
+            value = [value]
         else:
-            value = str(value)
-        entry = _vCard_entry(name, value, params, group)
+            value = [str(value)]
+        entry = _vCard_entry(name, value, params, group, version=self._version)
         self._properties.append(entry)
 
     def set_phone(self, number):

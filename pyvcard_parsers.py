@@ -35,12 +35,11 @@ class xCard_Parser:
 
     def vcards(self):
         vcards = []
-        tree = et.parsestring(get_string(self._object))
+        tree = et.fromstring(get_string(self.xcard))
         root = tree.getroot()
         for node in root:
             if node.name == "vcard":
                 factory = pyvcard.builder(self.indexer)
-                factory.set_version("4.0")
                 params = {}
                 if node[0].name == "group":
                     group = node[0]["name"]
@@ -80,9 +79,12 @@ class xCard_Parser:
                                 value = attr.text.split(";")
                             else:
                                 value = [et.tostring(attr, 'utf-8')]
-                    factory.add_property(name, value, group=group, params=params)
+                    if name == "VERSION":
+                        factory.set_version(value)
+                    else:
+                        factory.add_property(name, value, group=group, params=params)
                 vcards.append(factory.build())
-        return vcards
+        return pyvcard.vCardSet(vcards)
 
 
 class csv_Parser:
@@ -113,11 +115,13 @@ class jCard_Parser:
 
     def parse_vcard(self, vcard):
         factory = pyvcard.builder(self.indexer)
-        factory.set_version("4.0")
         if vcard[0] != "vcard":
             raise self.jCard_ValidationError("jCard isn't match to standard")
         for data in vcard[1:][0]:
             name = data[0].upper()
+            if name == "VERSION":
+                factory.set_version(data[3])
+                continue
             params = data[1]
             newparams = {}
             group = None
@@ -125,7 +129,10 @@ class jCard_Parser:
                 if "group" in params:
                     group = params["group"]
                 else:
-                    newparams[param.upper()] = params[param]
+                    if isinstance(params[param], str):
+                        newparams[param.upper()] = params[param]
+                    elif params[param] is not None:
+                        newparams[param.upper()] = ",".join(params[param])
             if data[2] != "unknown":
                 newparams["VALUE"] = data[2]
             if len(data[3:]) == 1:
@@ -143,4 +150,4 @@ class jCard_Parser:
         else:
             for vcard in self.source:
                 vcards.append(self.parse_vcard(vcard))
-        return vcards
+        return pyvcard.vCardSet(vcards)
