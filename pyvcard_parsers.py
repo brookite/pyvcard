@@ -35,8 +35,7 @@ class xCard_Parser:
 
     def vcards(self):
         vcards = []
-        tree = et.fromstring(get_string(self.xcard))
-        root = tree.getroot()
+        root = et.fromstring(get_string(self.xcard))
         for node in root:
             if node.name == "vcard":
                 factory = pyvcard.builder(self.indexer)

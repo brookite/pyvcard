@@ -3,7 +3,6 @@ import pyvcard
 from pyvcard_validator import validate_uri
 from xml.dom import minidom
 from csv import DictWriter
-import warnings
 import io
 import json
 import base64
@@ -200,12 +199,6 @@ class xCard_Converter:
         group_name = None
         for vcard_attr in vcardobj:
             value_param = "unknown"
-            """
-            TASK: Fix conversion bugs:
-            1. Empty parameters
-            2. Value ';' and other values bug
-            3. Strange encoding bug
-            """
             if vcard_attr.group is not None:
                 if group_name != vcard_attr.group:
                     group = et.SubElement(vcard, "group", name=vcard_attr.group)
@@ -234,22 +227,26 @@ class xCard_Converter:
                                     pvalue_node.text = txt
                             else:
                                 pvalue_node = et.SubElement(param_node, param_type)
-                                param_node = pyvcard.unescape(vcard_attr.params[param])
+                                if vcard_attr.params[param] is not None:
+                                    # potential trouble
+                                    pvalue_node.text = pyvcard.unescape(vcard_attr.params[param])
             if vcard_attr.name == "N":
                 value_node = et.SubElement(group, "surname")
-                value_node.text = vcard_attr.values[0]
+                value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
                 value_node = et.SubElement(group, "given")
-                value_node.text = vcard_attr.values[1]
+                value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[1]), vcard_attr.params)
                 value_node = et.SubElement(group, "additional")
-                value_node.text = vcard_attr.values[2]
+                value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[2]), vcard_attr.params)
                 value_node = et.SubElement(group, "prefix")
-                value_node.text = vcard_attr.values[3]
+                value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[3]), vcard_attr.params)
                 value_node = et.SubElement(group, "suffix")
-                value_node.text = vcard_attr.values[4]
+                value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[4]), vcard_attr.params)
             else:
                 value = et.SubElement(attr, value_param)
                 if len(vcard_attr.values) > 1:
-                    value.text = encoding_convert(pyvcard.unescape(";".join(vcard_attr.values)), vcard_attr.params)
+                    # rewrite
+                    if not all(map(lambda x: x.strip() == "", vcard_attr.values)):
+                        value.text = encoding_convert(pyvcard.unescape(";".join(vcard_attr.values)), vcard_attr.params)
                 elif len(vcard_attr.values) == 1:
                     value.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
         return vcard

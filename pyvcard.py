@@ -289,10 +289,14 @@ def strinteger(string):
     return int(n)
 
 
+def escape(string):
+    return re.escape(string)
+
+
 def unescape(string):
     if string is None or isinstance(string, bytes):
         return string
-    return string.encode("utf-8").decode('unicode_escape')
+    return re.sub(r'\\(.)', r'\1', string)
 
 
 def decode_property(property):
@@ -665,7 +669,7 @@ class _vCard:
                         value = i.values[0]
                     if value == fn and fullmatch:
                         return [self]
-                    elif value in fn and not fullmatch:
+                    elif fn in value and not fullmatch:
                         return [self]
             return []
 
@@ -981,3 +985,8 @@ def parse_name_property(prop):
         result["prefix"] = prop.values[3]
         result["suffix"] = prop.values[4]
     return result
+
+
+# Remove semicolon struct conversion xml
+# Parser fixes
+# Documentation
