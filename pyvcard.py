@@ -10,7 +10,7 @@ from pyvcard_converters import *
 from pyvcard_parsers import *
 
 validate_vcards = True
-
+line_warning = True
 
 class VERSION(enum.Enum):
     @staticmethod
@@ -386,7 +386,7 @@ def _unfold_lines(strings):
     lines = []
     for string in strings:
         string.replace("\n", "")
-        if len(string) > 75:
+        if len(string) > 75 and line_warning:
             warnings.warn("Long line found in current VCard (length > 75)")
         if string.startswith(" ") or string.startswith("\t"):
             if len(lines) == 0:
@@ -987,6 +987,6 @@ def parse_name_property(prop):
     return result
 
 
-# Remove semicolon struct conversion xml
+# potential trouble research
 # Parser fixes
 # Documentation

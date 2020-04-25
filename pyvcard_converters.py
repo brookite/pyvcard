@@ -25,6 +25,35 @@ def encoding_convert(source, params):
             return source
 
 
+def determine_type(prop):
+    if "VALUE" in prop.params:
+        return prop.params["VALUE"]
+    else:
+        if prop.name in [
+            "N", "FN", "XML", "KIND", "GENDER",
+            "TZ", "TITLE", "ROLE", "TEL", "EMAIL",
+            "ORG", "CATEGORIES", "NOTES", "PRODID",
+            "EXPERTISE", "HOBBY", "INTEREST", "ORG-DIRECTORY",
+            "BIRTHPLACE", "DEATHPLACE", "VERSION", "ADR"
+        ]:
+            return "text"
+        elif prop.name in [
+            "SOURCE", "IMPP", "GEO", "LOGO",
+            "MEMBER", "RELATED", "SOUND",
+            "UID", "URI", "KEY", "FBURL",
+            "CALADRURI", "CALURI"
+        ]:
+            return "uri"
+        elif prop.name in ["BDAY", "ANNIVERSARY", "DEATHDATE"]:
+            return "date-and-or-time"
+        elif prop.name in ["LANG"]:
+            return "language-tag"
+        elif prop.name in ["REV"]:
+            return "timestamp"
+        else:
+            return "unknown"
+
+
 class csv_Converter:
     def __init__(self, obj):
         if pyvcard.is_vcard(obj) or isinstance(obj, pyvcard.vCardSet):
@@ -84,38 +113,12 @@ class jCard_Converter:
     def object(self):
         return self._object
 
-    def determine_type(self, prop):
-        if "VALUE" in prop.params:
-            return prop.params["VALUE"]
-        else:
-            if prop.name in [
-                "N", "FN", "XML", "KIND", "GENDER",
-                "TZ", "TITLE", "ROLE", "TEL", "EMAIL",
-                "ORG", "CATEGORIES", "NOTES", "PRODID",
-                "EXPERTISE", "HOBBY", "INTEREST", "ORG-DIRECTORY",
-                "BIRTHPLACE", "DEATHPLACE", "VERSION"
-            ]:
-                return "text"
-            elif prop.name in [
-                "SOURCE", "IMPP", "GEO", "LOGO",
-                "MEMBER", "RELATED", "SOUND",
-                "UID", "URI", "KEY", "FBURL",
-                "CALADRURI", "CALURI"
-            ]:
-                return "uri"
-            elif prop.name in ["BDAY", "ANNIVERSARY", "DEATHDATE"]:
-                return "date-and-or-time"
-            elif prop.name in ["LANG"]:
-                return "language-tag"
-            elif prop.name in ["REV"]:
-                return "timestamp"
-            else:
-                return "unknown"
-
     def write_vcard(self, vcard, array):
         jcard = ["vcard", []]
         properties = jcard[1]
         for prop in vcard:
+            if prop.name == "VERSION" and prop.value == "4.0":
+                continue
             current = []
             current.append(prop.name.lower())
             params = {}
@@ -131,7 +134,7 @@ class jCard_Converter:
                     else:
                         params[param.lower()] = None
             current.append(params)
-            current.append(self.determine_type(prop))
+            current.append(determine_type(prop))
             if len(prop.values) == 1:
                 val = encoding_convert(prop.values[0], prop.params)
                 current.append(val)
@@ -191,6 +194,8 @@ class xCard_Converter:
                 return "uri"
             except Exception:
                 return "text"
+        elif param in ["CHARSET", "ENCODING"]:
+            return "text"
         else:
             return "unknown"
 
@@ -198,6 +203,8 @@ class xCard_Converter:
         vcard = et.SubElement(root, "vcard")
         group_name = None
         for vcard_attr in vcardobj:
+            if vcard_attr.name == "VERSION" and vcard_attr.value == "4.0":
+                continue
             value_param = "unknown"
             if vcard_attr.group is not None:
                 if group_name != vcard_attr.group:
@@ -218,6 +225,7 @@ class xCard_Converter:
                         if param == "VALUE":
                             value_param = vcard_attr.params[param]
                         else:
+                            value_param = determine_type(vcard_attr)
                             param_node = et.SubElement(parameters, param.lower())
                             param_type = self._recognize_param_type(param, vcard_attr.params[param])
                             if param_type == "text-list":
@@ -230,26 +238,45 @@ class xCard_Converter:
                                 if vcard_attr.params[param] is not None:
                                     # potential trouble
                                     pvalue_node.text = pyvcard.unescape(vcard_attr.params[param])
-            if vcard_attr.name == "N":
-                value_node = et.SubElement(group, "surname")
-                value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
-                value_node = et.SubElement(group, "given")
-                value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[1]), vcard_attr.params)
-                value_node = et.SubElement(group, "additional")
-                value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[2]), vcard_attr.params)
-                value_node = et.SubElement(group, "prefix")
-                value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[3]), vcard_attr.params)
-                value_node = et.SubElement(group, "suffix")
-                value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[4]), vcard_attr.params)
-            else:
-                value = et.SubElement(attr, value_param)
-                if len(vcard_attr.values) > 1:
-                    # rewrite
-                    if not all(map(lambda x: x.strip() == "", vcard_attr.values)):
-                        value.text = encoding_convert(pyvcard.unescape(";".join(vcard_attr.values)), vcard_attr.params)
-                elif len(vcard_attr.values) == 1:
-                    value.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
+            self.value_struct(attr, vcard_attr, value_param)
         return vcard
+
+    def value_struct(self, attr, vcard_attr, value_param):
+        if vcard_attr.name == "N":
+            value_node = et.SubElement(attr, "surname")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
+            value_node = et.SubElement(attr, "given")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[1]), vcard_attr.params)
+            value_node = et.SubElement(attr, "additional")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[2]), vcard_attr.params)
+            value_node = et.SubElement(attr, "prefix")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[3]), vcard_attr.params)
+            value_node = et.SubElement(attr, "suffix")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[4]), vcard_attr.params)
+        elif vcard_attr.name == "ADR":
+            value_node = et.SubElement(attr, "pobox")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
+            value_node = et.SubElement(attr, "ext")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[1]), vcard_attr.params)
+            value_node = et.SubElement(attr, "street")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[2]), vcard_attr.params)
+            value_node = et.SubElement(attr, "locality")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[3]), vcard_attr.params)
+            value_node = et.SubElement(attr, "region")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[4]), vcard_attr.params)
+            value_node = et.SubElement(attr, "code")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[5]), vcard_attr.params)
+            value_node = et.SubElement(attr, "country")
+            value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[6]), vcard_attr.params)
+        else:
+            value = et.SubElement(attr, value_param)
+            if len(vcard_attr.values) > 1:
+                for val in vcard_attr.values:
+                    v = et.SubElement(attr, value_param)
+                    if val != "":
+                        v.text = encoding_convert(pyvcard.unescape(val), vcard_attr.params)
+            elif len(vcard_attr.values) == 1:
+                value.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
 
     def result(self):
         root = et.Element("vcards", xmlns=self.HEADER)
