@@ -2,6 +2,7 @@ import xml.etree.ElementTree as et
 import pyvcard
 from csv import DictReader
 import io
+import re
 import json
 
 
@@ -33,55 +34,86 @@ class xCard_Parser:
             "timestamp", "boolean", "float", "utc-offset"
         ]
 
+    def _tag_name(self, tag):
+        return re.sub(r"{.+}", "", tag.tag)
+
     def vcards(self):
         vcards = []
         root = et.fromstring(get_string(self.xcard))
         for node in root:
-            if node.name == "vcard":
+            if self._tag_name(node) == "vcard":
                 factory = pyvcard.builder(self.indexer)
-                params = {}
-                if node[0].name == "group":
-                    group = node[0]["name"]
+                if self._tag_name(node[0]) == "group":
+                    group = node[0].attrib["name"]
                     node = node[0]
+                else:
+                    group = None
                 for vcard_data in node:
-                    name = vcard_data.name.upper()
+                    params = {}
+                    value = None
+                    name = self._tag_name(vcard_data).upper()
+                    name_array = None
                     for attr in vcard_data:
-                        if attr.name == "parameters":
+                        if self._tag_name(attr) == "parameters":
                             for param in attr:
                                 if len(param) == 1:
-                                    params[param.name.upper()] = param[0].text
+                                    if param[0].text == "":
+                                        params[self._tag_name(param).upper()] = None
+                                    else:
+                                        params[self._tag_name(param).upper()] = param[0].text
                                 else:
                                     s = []
                                     for subvalues in param:
                                         s.append(subvalues.text)
-                                    s = "".join(s)
-                                    params[param.name.upper()] = s
+                                    s = ",".join(s)
+                                    params[self._tag_name(param).upper()] = s
                         else:
                             if name == "N":
-                                name_array = ['' for i in range(5)]
-                                for tag in vcard_data:
-                                    if tag.name == "surname":
-                                        name_array[0] = tag.text
-                                    if tag.name == "given":
-                                        name_array[1] = tag.text
-                                    if tag.name == "additional":
-                                        name_array[2] = tag.text
-                                    if tag.name == "prefix":
-                                        name_array[3] = tag.text
-                                    if tag.name == "suffix":
-                                        name_array[4] = tag.text
+                                if name_array is None:
+                                    name_array = ['' for i in range(5)]
+                                if self._tag_name(attr) == "surname":
+                                    name_array[0] = attr.text if attr.text is not None else ""
+                                if self._tag_name(attr) == "given":
+                                    name_array[1] = attr.text if attr.text is not None else ""
+                                if self._tag_name(attr) == "additional":
+                                    name_array[2] = attr.text if attr.text is not None else ""
+                                if self._tag_name(attr) == "prefix":
+                                    name_array[3] = attr.text if attr.text is not None else ""
+                                if self._tag_name(attr) == "suffix":
+                                    name_array[4] = attr.text if attr.text is not None else ""
                                 value = name_array
-                            elif self._is_supported_tag(name):
-                                value_type = attr.name
-                                if value_type != "unknown":
-                                    params["VALUE"] = value_type
-                                value = attr.text.split(";")
+                            elif name == "ADR":
+                                if name_array is None:
+                                    name_array = ['' for i in range(7)]
+                                if self._tag_name(attr) == "pobox":
+                                    name_array[0] = attr.text if attr.text is not None else ""
+                                if self._tag_name(attr) == "ext":
+                                    name_array[1] = attr.text if attr.text is not None else ""
+                                if self._tag_name(attr) == "street":
+                                    name_array[2] = attr.text if attr.text is not None else ""
+                                if self._tag_name(attr) == "locality":
+                                    name_array[3] = attr.text if attr.text is not None else ""
+                                if self._tag_name(attr) == "region":
+                                    name_array[4] = attr.text if attr.text is not None else ""
+                                if self._tag_name(attr) == "code":
+                                    name_array[5] = attr.text if attr.text is not None else ""
+                                if self._tag_name(attr) == "country":
+                                    name_array[6] = attr.text if attr.text is not None else ""
+                                value = name_array
+                            elif self._is_supported_tag(self._tag_name(attr)):
+                                if value is None:
+                                    value_type = self._tag_name(attr)
+                                    if value_type != "unknown":
+                                        params["VALUE"] = value_type
+                                    value = [attr.text]
+                                else:
+                                    value.append(attr.text)
                             else:
-                                value = [et.tostring(attr, 'utf-8')]
+                                value = [et.tostring(attr, 'utf-8').decode("utf-8")]
                     if name == "VERSION":
-                        factory.set_version(value)
+                        factory.set_version(value[0])
                     else:
-                        factory.add_property(name, value, group=group, params=params)
+                        factory.add_property(name, value, group=group, params=params, encoding_raw=True)
                 vcards.append(factory.build())
         return pyvcard.vCardSet(vcards)
 
@@ -139,7 +171,7 @@ class jCard_Parser:
                     value = data[3:][0]
                 else:
                     value = data[3:]
-            factory.add_property(name, value, newparams, group)
+            factory.add_property(name, value, newparams, group, encoding_raw=True)
         return factory.build()
 
     def vcards(self):

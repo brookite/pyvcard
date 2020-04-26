@@ -151,7 +151,7 @@ class jCard_Converter:
             properties.append(current)
         array.append(jcard)
 
-    def result(self, return_obj=False):
+    def result(self, return_obj=False, *args, **kwargs):
         vcards = []
         if isinstance(self._object, pyvcard.vCardSet):
             for vcard in self._object:
@@ -161,7 +161,7 @@ class jCard_Converter:
         if return_obj:
             return vcards
         else:
-            return json.dumps(vcards, ensure_ascii=False)
+            return json.dumps(vcards, ensure_ascii=False, *args, **kwargs)
 
 
 class xCard_Converter:
@@ -236,7 +236,6 @@ class xCard_Converter:
                             else:
                                 pvalue_node = et.SubElement(param_node, param_type)
                                 if vcard_attr.params[param] is not None:
-                                    # potential trouble
                                     pvalue_node.text = pyvcard.unescape(vcard_attr.params[param])
             self.value_struct(attr, vcard_attr, value_param)
         return vcard
@@ -269,13 +268,13 @@ class xCard_Converter:
             value_node = et.SubElement(attr, "country")
             value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[6]), vcard_attr.params)
         else:
-            value = et.SubElement(attr, value_param)
             if len(vcard_attr.values) > 1:
                 for val in vcard_attr.values:
                     v = et.SubElement(attr, value_param)
                     if val != "":
                         v.text = encoding_convert(pyvcard.unescape(val), vcard_attr.params)
             elif len(vcard_attr.values) == 1:
+                value = et.SubElement(attr, value_param)
                 value.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
 
     def result(self):

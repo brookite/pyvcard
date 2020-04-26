@@ -12,6 +12,7 @@ from pyvcard_parsers import *
 validate_vcards = True
 line_warning = True
 
+
 class VERSION(enum.Enum):
     @staticmethod
     def get(version):
@@ -289,8 +290,10 @@ def strinteger(string):
     return int(n)
 
 
-def escape(string):
-    return re.escape(string)
+def escape(string, characters=[";", ","]):
+    for char in characters:
+        string = string.replace(char, f"\\{char}")
+    return string
 
 
 def unescape(string):
@@ -311,7 +314,7 @@ def decode_property(property):
 
 
 class _vCard_entry:
-    def __init__(self, name, values, params={}, group=None, version="4.0"):
+    def __init__(self, name, values, params={}, group=None, version="4.0", encoded=True):
         self._name = name
         self._params = params
         self._values = list(values)
@@ -321,7 +324,8 @@ class _vCard_entry:
                 self._group = group[:-1]
         if validate_vcards:
             validate_property(self, version)
-        decode_property(self)
+        if encoded is True:
+            decode_property(self)
         self._values = tuple(self._values)
         self._version = version
 
@@ -884,16 +888,25 @@ class _vCard_Builder:
         self._properties = []
         self._version = version
 
-    def add_property(self, name, value, params={}, group=None):
+    def add_property(self, name, value, params={}, group=None, encoding_raw=False):
         if isinstance(value, str):
-            value = value.split(";")
-        elif hasattr(value, "__iter__") and not isinstance(value, str):
-            value = list(map(str, value))
+            value = [escape(value)]
         elif isinstance(value, bytes):
             value = [value]
+        elif hasattr(value, "__iter__") and not isinstance(value, str):
+
+            def func(x):
+                if isinstance(x, str):
+                    return escape(x)
+                elif not isinstance(x, bytes):
+                    return str(x)
+                else:
+                    return x
+
+            value = list(map(func, value))
         else:
             value = [str(value)]
-        entry = _vCard_entry(name, value, params, group, version=self._version)
+        entry = _vCard_entry(name, value, params, group, version=self._version, encoded=encoding_raw)
         self._properties.append(entry)
 
     def set_phone(self, number):
@@ -987,6 +1000,6 @@ def parse_name_property(prop):
     return result
 
 
-# potential trouble research
-# Parser fixes
+# Need some tests
+# Exception/ warning messages enhancing
 # Documentation

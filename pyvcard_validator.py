@@ -143,7 +143,6 @@ def validate_boolean(value, property=None):
 def validate_uri(value, property=None):
     parsed = urlparse(value)
     if parsed[0] == '' or (parsed[1] == '' and parsed[2] == ''):
-        print(value)
         raise VCardValidationError("URI is incorrect", property)
 
 
