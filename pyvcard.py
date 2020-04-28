@@ -282,7 +282,7 @@ def str_to_quoted(string, encoding="utf-8"):
 
 def strinteger(string):
     n = ""
-    if type(string) == int:
+    if isinstance(string, int):
         return string
     for i in string:
         if i.isdigit():
@@ -383,7 +383,8 @@ class _vCard_entry:
         return self._values[0]
 
     def __repr__(self):
-        return f"<{self._name} property>"
+        reprval = ";".join(self.values)
+        return f"<{self._name} property: {reprval}>"
 
 
 def _unfold_lines(strings):
@@ -522,7 +523,7 @@ def _parse_lines(strings, indexer=None):
 class _vCard_Parser:
     def __init__(self, source, indexer=None):
         self.indexer = indexer
-        if type(source) == str:
+        if isinstance(source, int):
             if source.strip() == "":
                 raise VCardValidationError("Empty file")
             source = source.splitlines(False)
@@ -616,7 +617,7 @@ class _vCard:
         return len(self._attrs)
 
     def __getitem__(self, key):
-        if type(key) == int:
+        if isinstance(key, int):
             return self._attrs[key]
         else:
             arr = []
@@ -988,6 +989,10 @@ def is_vcard(object):
     return isinstance(object, _vCard)
 
 
+def is_vcard_property(object):
+    return isinstance(object, _vCard_entry)
+
+
 def parse_name_property(prop):
     result = None
     if prop.name == "N":
@@ -998,6 +1003,8 @@ def parse_name_property(prop):
         result["prefix"] = prop.values[3]
         result["suffix"] = prop.values[4]
     return result
+
+
 
 
 # Need some tests

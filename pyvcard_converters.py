@@ -13,7 +13,7 @@ def encoding_convert(source, params):
         enc = params["ENCODING"].upper()
     else:
         enc = None
-    if type(source) in [tuple, list]:
+    if isinstance(source, list) or isinstance(source, tuple):
         for i in range(len(source)):
             source[i] = encoding_convert(source[i], params)
     else:
@@ -141,7 +141,7 @@ class jCard_Converter:
             else:
                 arr = []
                 for i in prop.values:
-                    if type(prop.values[0]) == bytes:
+                    if isinstance(prop.values[0], bytes):
                         i = encoding_convert(prop.values[0], prop.params)
                     else:
                         if "," in i:
