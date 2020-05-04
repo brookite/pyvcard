@@ -236,12 +236,12 @@ class vCardIndexer:
                 result.add(j)
         return tuple(result)
 
-    def find_by_param(self, paramname, value, fullmatch=True):
+    def find_by_property(self, paramname, value, fullmatch=True):
         if paramname in self._params:
             if value in self._params[paramname] and fullmatch:
                 return (self._params[paramname][value])
-        if hasattr(value, "__iter__"):
-            value = ";".join(value)
+        if hasattr(value, "__iter__") and not isinstance(value, str):
+            value = ",".join(value)
         if value in self._params[paramname]:
             return self._params[paramname][value]
 
@@ -258,12 +258,10 @@ class vCardIndexer:
                 s.append(i)
         return tuple(set(s))
 
-    def find_by_paramvalue(self, value, fullmatch=True):
+    def find_by_value(self, value, fullmatch=True):
         result = []
         for i in self._params:
-            lst = self.find_by_param(i, value, fullmatch)
-            for j in lst:
-                result.append(j)
+            result += self.find_by_property(i, value, fullmatch)
         return tuple(set(result))
 
 
@@ -667,9 +665,9 @@ class _vCard:
     def properties(self):
         return tuple(self._attrs)
 
-    def find_by_group(self, group, case=False, fullmatch=True, indexsearch=False):
+    def find_by_group(self, group, case=False, fullmatch=True, indexsearch=True):
         if self._indexer and indexsearch:
-            self._indexer.find_by_group(group, case=case, fullmatch=fullmatch)
+            return self._indexer.find_by_group(group, case=case, fullmatch=fullmatch)
         else:
             for i in self._attrs:
                 if not case:
@@ -685,9 +683,9 @@ class _vCard:
                         return [self]
             return []
 
-    def find_by_name(self, fn, case=False, fullmatch=True, indexsearch=False):
+    def find_by_name(self, fn, case=False, fullmatch=True, indexsearch=True):
         if self._indexer and indexsearch:
-            self._indexer.find_by_name(fn, case, fullmatch)
+            return self._indexer.find_by_name(fn, case, fullmatch)
         else:
             for i in self._attrs:
                 if not case:
@@ -703,9 +701,9 @@ class _vCard:
                         return [self]
             return []
 
-    def find_by_phone(self, number, fullmatch=False, parsestr=True, indexsearch=False):
+    def find_by_phone(self, number, fullmatch=False, parsestr=True, indexsearch=True):
         if self._indexer and indexsearch:
-            self._indexer.find_by_phone(number, fullmatch, parsestr)
+            return self._indexer.find_by_phone(number, fullmatch, parsestr)
         else:
             for i in self._attrs:
                 if i.name == "TEL":
@@ -719,9 +717,9 @@ class _vCard:
                         return [self]
             return []
 
-    def find_by_phone_endswith(self, number, parsestr=True, indexsearch=False):
+    def find_by_phone_endswith(self, number, parsestr=True, indexsearch=True):
         if self._indexer and indexsearch:
-            self._indexer.find_by_phone_endswith(number, parsestr)
+            return self._indexer.find_by_phone_endswith(number, parsestr)
         else:
             for i in self._attrs:
                 if i.name == "TEL":
@@ -733,9 +731,9 @@ class _vCard:
                         return [self]
             return []
 
-    def find_by_phone_startswith(self, number, parsestr=True, indexsearch=False):
+    def find_by_phone_startswith(self, number, parsestr=True, indexsearch=True):
         if self._indexer and indexsearch:
-            self._indexer.find_by_phone_startswith(number, parsestr)
+            return self._indexer.find_by_phone_startswith(number, parsestr)
         else:
             for i in self._attrs:
                 if i.name == "TEL":
@@ -747,32 +745,29 @@ class _vCard:
                         return(self)
             return []
 
-    def find_by_param(self, paramname, value, fullmatch=True, indexsearch=False):
+    def find_by_property(self, paramname, value, fullmatch=True, indexsearch=True):
         if self._indexer and indexsearch:
-            self._indexer.find_by_param(paramname, value, fullmatch)
+            return self._indexer.find_by_property(paramname, value, fullmatch)
         else:
-            if hasattr(value, "__iter__"):
+            if hasattr(value, "__iter__") and not isinstance(value, str):
                 value = ";".join(value)
             for i in self._attrs:
                 if i.name == paramname:
-                    if ";".join(i.values) == value and fullmatch:
-                        return [self]
-                    elif value in ";".join(i.values) and not fullmatch:
-                        return [self]
+                    if all(map(lambda x: isinstance(x, str), i.values)):
+                        if ";".join(i.values) == value and fullmatch:
+                            return [self]
+                        elif value in ";".join(i.values) and not fullmatch:
+                            return [self]
             return []
 
-    def find_by_paramvalue(self, value, fullmatch=True, indexsearch=False):
+    def find_by_value(self, value, fullmatch=True, indexsearch=True):
         if self._indexer and indexsearch:
-            self._indexer.find_by_paramvalue(value, fullmatch)
+            return self._indexer.find_by_value(paramname, value, fullmatch)
         else:
-            if hasattr(value, "__iter__"):
-                value = ";".join(value)
+            result = []
             for i in self._attrs:
-                if ";".join(i.values) == value and fullmatch:
-                    return [self]
-                elif value in ";".join(i.values) and not fullmatch:
-                    return [self]
-            return []
+                result += self.find_by_property(i.name, value, fullmatch, indexsearch)
+            return result
 
 
 class vCardSet(set):
@@ -854,29 +849,28 @@ class vCardSet(set):
                         result.add(value)
             return tuple(result)
 
-    def find_by_param(self, paramname, value, fullmatch=True, indexsearch=True):
+    def find_by_property(self, paramname, value, fullmatch=True, indexsearch=True):
         if indexsearch and self._indexer:
-            return self._indexer.find_by_param(paramname, value, fullmatch)
+            return self._indexer.find_by_property(paramname, value, fullmatch)
         else:
             result = set()
             for i in self:
-                val = i.find_by_param(paramname, value, fullmatch)
+                val = i.find_by_property(paramname, value, fullmatch)
                 if val:
-                    for value in val:
-                        result.add(value)
+                    for e in val:
+                        result.add(e)
             return tuple(result)
 
-    def find_by_paramvalue(self, value, fullmatch=True, indexsearch=True):
+    def find_by_value(self, value, fullmatch=True, indexsearch=True):
         if indexsearch and self._indexer:
-            return self._indexer.find_by_paramvalue(value, fullmatch)
+            return self._indexer.find_by_value(value, fullmatch)
         else:
             result = set()
             for i in self:
-                for paramname in i:
-                    val = i.find_by_paramvalue(paramname, value, fullmatch)
-                    if val:
-                        for value in val:
-                            result.add(value)
+                val = i.find_by_value(value, fullmatch)
+                if val:
+                    for e in val:
+                        result.add(e)
             return tuple(result)
 
 
@@ -934,9 +928,6 @@ class _vCard_Builder:
         self._properties.append(entry)
 
     def set_phone(self, number):
-        for i in self._properties:
-            if i.name == "TEL":
-                raise KeyError("Key already exists")
         tel = _vCard_entry("TEL", [str(number)])
         self._properties.append(tel)
 
@@ -949,7 +940,7 @@ class _vCard_Builder:
             name = name.split(" ")
             while len(name) < 5:
                 name.append("")
-        elif hasattr(name, "__iter__"):
+        elif hasattr(name, "__iter__") and not isinstance(name, str):
             name = list(map(str, name))
             fname = "".join(name)
         else:
@@ -1034,7 +1025,8 @@ def parse_name_property(prop):
 TASK LIST:
 
 Version 1.0 alpha dev 1:
-
+find_by_property
+find_by_value
 Need some tests
 Exception/ warning messages enhancing
 Documentation

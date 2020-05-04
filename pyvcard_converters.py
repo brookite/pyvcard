@@ -94,8 +94,8 @@ class csv_Converter:
     def write_vcard(self, vcard, writer, permanent=False):
         data = vcard.contact_data()
         row = {
-            "Formatted name": pyvcard.escape(data["name"], characters=["\n", "\r"]),
-            "Name": pyvcard.escape(data["struct_name"], characters=["\n", "\r"]),
+            "Formatted name": data["name"],
+            "Name": data["struct_name"],
             "Tel. Number": data["number"],
         }
         if not permanent:
