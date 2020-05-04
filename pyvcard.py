@@ -282,24 +282,44 @@ def str_to_quoted(string, encoding="utf-8"):
 
 def strinteger(string):
     n = ""
-    if isinstance(string, int):
+    if isinstance(string, int) or string == "":
         return string
     for i in string:
-        if i.isdigit():
+        if i.isdigit() or i == ".":
             n += i
-    return int(n)
+    if string[0] == "-":
+        n = "-" + n
+    return int(n) if "." not in n else float(n)
 
 
-def escape(string, characters=[";", ","]):
+def escape(string, characters=[";", ",", "\n", "\r"]):
+    if not isinstance(string, str):
+        return string
     for char in characters:
-        string = string.replace(char, f"\\{char}")
+        if char in ["\t", "\r", "\n"]:
+            if char == "\n":
+                string = string.replace(char, "\\n")
+            elif char == "\t":
+                string = string.replace(char, "\\t")
+            elif char == "\r":
+                string = string.replace(char, "\\r")
+        else:
+            string = string.replace(char, "\\" + char)
     return string
 
 
-def unescape(string):
+def unescape(string, only_double=False):
     if string is None or isinstance(string, bytes):
         return string
-    return re.sub(r'\\(.)', r'\1', string)
+    if only_double:
+        r = re.sub(r'\\\\n', r'\\n', string)
+        r = re.sub(r'\\\\r', r'\\r', r)
+    else:
+        r = re.sub(r'\\r', r'\r', string)
+        r = re.sub(r'\\n', r'\n', r)
+        r = re.sub(r'\\t', r'\t', r)
+        r = re.sub(r'\\(.)', r'\1', r)
+    return r
 
 
 def decode_property(property):
@@ -358,6 +378,9 @@ class _vCard_entry:
             elif self._params["ENCODING"] in ["B", "BASE64"]:
                 for i in range(len(values)):
                     values[i] = base64.b64encode(values[i]).decode("utf-8")
+        else:
+            for i in range(len(values)):
+                values[i] = escape(values[i])
         values = ";".join(values)
         string += f":{values}"
         return _fold_line(string, expect_quopri)
@@ -466,6 +489,8 @@ def _parse_line(string, version):
             values = m2.group(9).split(";")
         else:
             values = m2.group(11).split(";")
+        for i in range(len(values)):
+            values[i] = unescape(values[i])
         group = m2.group(1) if m2.group(1) != "" else None
         return name, values, params_dict, group
     else:
@@ -523,7 +548,7 @@ def _parse_lines(strings, indexer=None):
 class _vCard_Parser:
     def __init__(self, source, indexer=None):
         self.indexer = indexer
-        if isinstance(source, int):
+        if isinstance(source, str):
             if source.strip() == "":
                 raise VCardValidationError("Empty file")
             source = source.splitlines(False)
@@ -891,15 +916,13 @@ class _vCard_Builder:
 
     def add_property(self, name, value, params={}, group=None, encoding_raw=False):
         if isinstance(value, str):
-            value = [escape(value)]
+            value = [value]
         elif isinstance(value, bytes):
             value = [value]
         elif hasattr(value, "__iter__") and not isinstance(value, str):
 
             def func(x):
-                if isinstance(x, str):
-                    return escape(x)
-                elif not isinstance(x, bytes):
+                if not isinstance(x, bytes):
                     return str(x)
                 else:
                     return x
@@ -924,6 +947,8 @@ class _vCard_Builder:
         if isinstance(name, str):
             fname = name
             name = name.split(" ")
+            while len(name) < 5:
+                name.append("")
         elif hasattr(name, "__iter__"):
             name = list(map(str, name))
             fname = "".join(name)
@@ -1005,8 +1030,17 @@ def parse_name_property(prop):
     return result
 
 
+"""
+TASK LIST:
 
+Version 1.0 alpha dev 1:
 
-# Need some tests
-# Exception/ warning messages enhancing
-# Documentation
+Need some tests
+Exception/ warning messages enhancing
+Documentation
+Initial release
+
+Version 1.0 alpha dev 2:
+hCard (HTML)
+maybe: property types struct
+"""

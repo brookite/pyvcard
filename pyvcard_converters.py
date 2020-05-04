@@ -54,6 +54,32 @@ def determine_type(prop):
             return "unknown"
 
 
+def recognize_param_type(param, value):
+    if param == "LANGUAGE":
+        return "language-tag"
+    elif param == "PREF":
+        return "integer"
+    elif param in ["MEDIATYPE", "CALSCALE", "SORT-AS", "ALTID", "VALUE"]:
+        return "text"
+    elif param == "GEO":
+        return "uri"
+    elif param in ["PID", "TYPE"]:
+        if "," in value:
+            return "text-list"
+        else:
+            return "text"
+    elif param == "TZ":
+        try:
+            validate_uri(value)
+            return "uri"
+        except Exception:
+            return "text"
+    elif param in ["CHARSET", "ENCODING"]:
+        return "text"
+    else:
+        return "unknown"
+
+
 class csv_Converter:
     def __init__(self, obj):
         if pyvcard.is_vcard(obj) or isinstance(obj, pyvcard.vCardSet):
@@ -68,8 +94,8 @@ class csv_Converter:
     def write_vcard(self, vcard, writer, permanent=False):
         data = vcard.contact_data()
         row = {
-            "Formatted name": data["name"],
-            "Name": data["struct_name"],
+            "Formatted name": pyvcard.escape(data["name"], characters=["\n", "\r"]),
+            "Name": pyvcard.escape(data["struct_name"], characters=["\n", "\r"]),
             "Tel. Number": data["number"],
         }
         if not permanent:
@@ -174,31 +200,6 @@ class xCard_Converter:
     def object(self):
         return self._object
 
-    def _recognize_param_type(self, param, value):
-        if param == "LANGUAGE":
-            return "language-tag"
-        elif param == "PREF":
-            return "integer"
-        elif param in ["MEDIATYPE", "CALSCALE", "SORT-AS", "ALTID", "VALUE"]:
-            return "text"
-        elif param == "GEO":
-            return "uri"
-        elif param in ["PID", "TYPE"]:
-            if "," in value:
-                return "text-list"
-            else:
-                return "text"
-        elif param == "TZ":
-            try:
-                validate_uri(value)
-                return "uri"
-            except Exception:
-                return "text"
-        elif param in ["CHARSET", "ENCODING"]:
-            return "text"
-        else:
-            return "unknown"
-
     def parse_vcard(self, vcardobj, root):
         vcard = et.SubElement(root, "vcard")
         group_name = None
@@ -227,7 +228,7 @@ class xCard_Converter:
                         else:
                             value_param = determine_type(vcard_attr)
                             param_node = et.SubElement(parameters, param.lower())
-                            param_type = self._recognize_param_type(param, vcard_attr.params[param])
+                            param_type = recognize_param_type(param, vcard_attr.params[param])
                             if param_type == "text-list":
                                 txtlst = vcard_attr.params[param].split(",")
                                 for txt in txtlst:
