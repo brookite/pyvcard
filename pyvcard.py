@@ -65,8 +65,8 @@ class vCardIndexer:
         return self._params
 
     def setindex(self, vcard):
-        if isinstance(vcard, _VCard):
-            vcard._indexer = vcard
+        if is_vcard(vcard):
+            vcard._indexer = self
             self._vcards.append(vcard)
 
     def index(self, entry, vcard):
@@ -88,13 +88,22 @@ class vCardIndexer:
                 if entry.values[0] not in self._phones:
                     self._phones[entry.values[0]] = []
                 self._phones[entry.values[0]].append(vcard)
-                self._phones[strinteger(entry.values[0])] = vcard
+                if strinteger(entry.values[0]) not in self._phones:
+                    self._phones[strinteger(entry.values[0])] = []
+                self._phones[strinteger(entry.values[0])].append(vcard)
             elif self._indexparams:
                 if entry.name not in self._params:
                     self._params[entry.name] = {}
-                if ";".join(entry.values) not in self._params[entry.name]:
-                    self._params[entry.name][";".join(entry.values)] = []
-                self._params[entry.name][";".join(entry.values)].append(vcard)
+
+                def type_convert(x):
+                    if isinstance(x, bytes):
+                        return base64_encode(x)
+                    else:
+                        return str(x)
+                ivalues = list(map(type_convert, entry.values))
+                if ";".join(ivalues) not in self._params[entry.name]:
+                    self._params[entry.name][";".join(ivalues)] = []
+                self._params[entry.name][";".join(ivalues)].append(vcard)
 
     def __len__(self):
         return len(self._names) + len(self._phones)
@@ -134,71 +143,80 @@ class vCardIndexer:
         return tuple(self._groups[group])
 
     def find_by_group(self, group, fullmatch=True, case=False):
-        if group in self._names and fullmatch:
-            return tuple(self._names[fn])
+        if group in self._groups and fullmatch:
+            return tuple(self._groups[group])
+        elif not fullmatch:
+            def filter_function(x):
+                if not case:
+                    value = x.lower()
+                    nonlocal group
+                    group = group.lower()
+                else:
+                    value = x
+                if fullmatch:
+                    return value == group
+                else:
+                    return group in value
 
-        def filter_function(x):
-            if not case:
-                value = x.lower()
-                nonlocal group
-                group = group.lower()
-            else:
-                value = x
-            if fullmatch:
-                return value == group
-            else:
-                return group in value
-
-        lst = filter(filter_function, self._groups.values())
-        result = set()
-        for i in lst:
-            for j in i:
-                result.add(j)
-        return tuple(result)
+            lst = filter(filter_function, self._groups.keys())
+            result = set()
+            for i in lst:
+                for j in self._groups[i]:
+                    result.add(j)
+            return tuple(result)
+        else:
+            return tuple()
 
     def find_by_name(self, fn, case=False, fullmatch=True):
         if fn in self._names and fullmatch:
             return tuple(self._names[fn])
+        elif not fullmatch:
+            def filter_function(x):
+                if not case:
+                    if isinstance(x, str):
+                        value = x.lower()
+                    else:
+                        value = ";".join((map(str, x)))
+                    nonlocal fn
+                    fn = fn.lower()
+                else:
+                    value = x
+                if fullmatch:
+                    return value == fn
+                else:
+                    return fn in value
 
-        def filter_function(x):
-            if not case:
-                value = x.lower()
-                nonlocal fn
-                fn = fn.lower()
-            else:
-                value = x
-            if fullmatch:
-                return value == fn
-            else:
-                return fn in value
-
-        lst = filter(filter_function, self._names.values())
-        result = set()
-        for i in lst:
-            for j in i:
-                result.add(j)
-        return tuple(result)
+            lst = filter(filter_function, self._names.keys())
+            result = set()
+            for i in lst:
+                for j in self._names[i]:
+                    result.add(j)
+            return tuple(result)
+        else:
+            return tuple()
 
     def find_by_phone(self, number, fullmatch=False, parsestr=True):
         if number in self._phones and fullmatch:
             return tuple(self._phones[number])
+        elif not fullmatch:
+            def filter_function(x):
+                if parsestr:
+                    value = strinteger(x)
+                else:
+                    value = x
+                if fullmatch:
+                    return str(value) == str(number)
+                else:
+                    return str(number) in str(value)
 
-        def filter_function(x):
-            if parsestr:
-                value = strinteger(x)
-            else:
-                value = x
-            if fullmatch:
-                return str(value) == str(number)
-            else:
-                return str(number) in str(value)
-
-        lst = filter(filter_function, self._phones.values())
-        result = set()
-        for i in lst:
-            for j in i:
-                result.add(j)
-        return tuple(result)
+            lst = filter(filter_function, self._phones.keys())
+            result = set()
+            for i in lst:
+                for j in self._phones[i]:
+                    result.add(j)
+            return tuple(result)
+        else:
+            return tuple()
 
     def find_by_phone_endswith(self, number, parsestr=True):
         if number in self._phones:
@@ -211,10 +229,10 @@ class vCardIndexer:
                 value = x
             return str(value).endswith(str(number))
 
-        lst = filter(filter_function, self._phones.values())
+        lst = filter(filter_function, self._phones.keys())
         result = set()
         for i in lst:
-            for j in i:
+            for j in self._phones[i]:
                 result.add(j)
         return tuple(result)
 
@@ -229,10 +247,10 @@ class vCardIndexer:
                 value = x
             return str(value).startswith(str(number))
 
-        lst = filter(filter_function, self._phones.values())
+        lst = filter(filter_function, self._phones.keys())
         result = set()
         for i in lst:
-            for j in i:
+            for j in self._phones[i]:
                 result.add(j)
         return tuple(result)
 
@@ -241,9 +259,7 @@ class vCardIndexer:
             if value in self._params[paramname] and fullmatch:
                 return (self._params[paramname][value])
         if hasattr(value, "__iter__") and not isinstance(value, str):
-            value = ",".join(value)
-        if value in self._params[paramname]:
-            return self._params[paramname][value]
+            value = ";".join(value)
 
         def filter_function(x):
             if fullmatch:
@@ -252,9 +268,9 @@ class vCardIndexer:
                 return value in x
 
         s = []
-        lst = list(filter(filter_function, self._params[paramname].values()))
+        lst = list(filter(filter_function, self._params[paramname].keys()))
         for i in lst:
-            for j in i:
+            for j in self._params[paramname][i]:
                 s.append(i)
         return tuple(set(s))
 
@@ -276,6 +292,14 @@ def str_to_quoted(string, encoding="utf-8"):
         i = hex(i)[2:]
         qp += "=" + str(i)
     return qp.upper()
+
+
+def base64_encode(value):
+    return base64.b64encode(value).decode("utf-8")
+
+
+def base64_decode(value):
+    return base64.b64decode(value)
 
 
 def strinteger(string):
@@ -328,7 +352,7 @@ def decode_property(property):
                     property._values[i] = quoted_to_str(property._values[i])
             elif property._params["ENCODING"] in ["B", "BASE64"]:
                 if property._values[i] != '':
-                    property._values[i] = base64.b64decode(property._values[i].encode("utf-8"))
+                    property._values[i] = base64_decode(property._values[i].encode("utf-8"))
 
 
 class _vCard_entry:
@@ -375,7 +399,7 @@ class _vCard_entry:
                         values[i] = str_to_quoted(values[i], charset)
             elif self._params["ENCODING"] in ["B", "BASE64"]:
                 for i in range(len(values)):
-                    values[i] = base64.b64encode(values[i]).decode("utf-8")
+                    values[i] = base64_encode(values[i])
         else:
             for i in range(len(values)):
                 values[i] = escape(values[i])
@@ -536,6 +560,7 @@ def _parse_lines(strings, indexer=None):
                 vcard._set_version(version)
             entry = _vCard_entry(*parsed, version=version)
             if indexer is not None:
+                indexer.setindex(vcard)
                 indexer.index(entry, vcard)
             buf.append(entry)
     if card_opened:
@@ -555,16 +580,17 @@ class _vCard_Parser:
         else:
             if hasattr(source, "fileno"):
                 if not source.closed:
-                    source = source.read().split("\n")
-                    source = _unfold_lines(source)
-                    self.__args = _parse_lines(source, self.indexer)
+                    fsource = source.read().split("\n")
+                    source.close()
+                    fsource = _unfold_lines(fsource)
+                    self.__args = _parse_lines(fsource, self.indexer)
                 else:
                     raise IOError("File is closed")
             else:
                 raise IOError("Source is not file")
 
     def vcards(self):
-        return vCardSet(self.__args, self.indexer)
+        return vCardSet(self.__args, indexer=self.indexer)
 
 
 class _vCard:
@@ -586,11 +612,12 @@ class _vCard:
 
     def contact_data(self):
         obj = dict.fromkeys(["name", "number", "struct_name"], None)
+        obj["number"] = []
         for i in self:
             if i.name == "FN":
                 obj["name"] = i.values[0]
             elif i.name == "TEL":
-                obj["number"] = strinteger(i.values[0])
+                obj["number"].append(strinteger(i.values[0]))
             elif i.name == "N":
                 obj["struct_name"] = ";".join(i.values)
         return obj
@@ -669,17 +696,20 @@ class _vCard:
         if self._indexer and indexsearch:
             return self._indexer.find_by_group(group, case=case, fullmatch=fullmatch)
         else:
+            if not case and group is not None:
+                group = group.lower()
             for i in self._attrs:
-                if not case:
-                    group = group.lower()
-                if i.name == "FN":
-                    if not case:
-                        value = i.values[0].lower()
-                    else:
-                        value = i.values[0]
-                    if value == group and fullmatch:
+                if not case and i.group is not None:
+                    value = i.group.lower()
+                else:
+                    value = i.group
+                if value == group and fullmatch:
+                    return [self]
+                elif value is not None:
+                    if group in value and not fullmatch:
                         return [self]
-                    elif value in group and not fullmatch:
+                else:
+                    if value == group:
                         return [self]
             return []
 
@@ -687,9 +717,9 @@ class _vCard:
         if self._indexer and indexsearch:
             return self._indexer.find_by_name(fn, case, fullmatch)
         else:
+            if not case:
+                fn = fn.lower()
             for i in self._attrs:
-                if not case:
-                    fn = fn.lower()
                 if i.name == "FN":
                     if not case:
                         value = i.values[0].lower()
@@ -701,10 +731,11 @@ class _vCard:
                         return [self]
             return []
 
-    def find_by_phone(self, number, fullmatch=False, parsestr=True, indexsearch=True):
+    def find_by_phone(self, number, fullmatch=True, parsestr=True, indexsearch=True):
         if self._indexer and indexsearch:
             return self._indexer.find_by_phone(number, fullmatch, parsestr)
         else:
+            r = []
             for i in self._attrs:
                 if i.name == "TEL":
                     if parsestr:
@@ -712,15 +743,16 @@ class _vCard:
                     else:
                         value = i.values[0]
                     if str(value) == str(number) and fullmatch:
-                        return [self]
+                        r.append(self)
                     elif str(number) in str(value) and not fullmatch:
-                        return [self]
-            return []
+                        r.append(self)
+            return r
 
     def find_by_phone_endswith(self, number, parsestr=True, indexsearch=True):
         if self._indexer and indexsearch:
             return self._indexer.find_by_phone_endswith(number, parsestr)
         else:
+            r = []
             for i in self._attrs:
                 if i.name == "TEL":
                     if parsestr:
@@ -728,13 +760,14 @@ class _vCard:
                     else:
                         value = i.values[0]
                     if str(value).endswith(str(number)):
-                        return [self]
-            return []
+                        r.append(self)
+            return r
 
     def find_by_phone_startswith(self, number, parsestr=True, indexsearch=True):
         if self._indexer and indexsearch:
             return self._indexer.find_by_phone_startswith(number, parsestr)
         else:
+            r = []
             for i in self._attrs:
                 if i.name == "TEL":
                     if parsestr:
@@ -742,8 +775,8 @@ class _vCard:
                     else:
                         value = i.values[0]
                     if str(value).startswith(str(number)):
-                        return(self)
-            return []
+                        r.append(self)
+            return r
 
     def find_by_property(self, paramname, value, fullmatch=True, indexsearch=True):
         if self._indexer and indexsearch:
@@ -753,20 +786,28 @@ class _vCard:
                 value = ";".join(value)
             for i in self._attrs:
                 if i.name == paramname:
-                    if all(map(lambda x: isinstance(x, str), i.values)):
-                        if ";".join(i.values) == value and fullmatch:
-                            return [self]
-                        elif value in ";".join(i.values) and not fullmatch:
-                            return [self]
+
+                    def type_convert(x):
+                        if isinstance(x, bytes):
+                            return base64_encode(x)
+                        else:
+                            return str(x)
+                    ivalues = list(map(type_convert, i.values))
+                    if ";".join(ivalues) == value and fullmatch:
+                        return [self]
+                    elif value in ";".join(ivalues) and not fullmatch:
+                        return [self]
             return []
 
     def find_by_value(self, value, fullmatch=True, indexsearch=True):
         if self._indexer and indexsearch:
-            return self._indexer.find_by_value(paramname, value, fullmatch)
+            return self._indexer.find_by_value(value, fullmatch)
         else:
             result = []
             for i in self._attrs:
-                result += self.find_by_property(i.name, value, fullmatch, indexsearch)
+                lst = self.find_by_property(i.name, value, fullmatch, indexsearch)
+                for i in lst:
+                    result.append(i)
             return result
 
 
@@ -781,6 +822,12 @@ class vCardSet(set):
     def add(self, vcard):
         if isinstance(vcard, _VCard):
             super().add(vcard)
+
+    def setindex(self, indexer):
+        if isinstance(indexer, vCardIndexer):
+            self._indexer = indexer
+        else:
+            raise TypeError("Required vCardIndexer instance")
 
     def repr_vcard(self, encode=True):
         s = ""
@@ -970,7 +1017,7 @@ class _vCard_Builder:
 
 
 def parse(source, indexer=None):
-    return _vCard_Parser(source, indexer)
+    return _vCard_Parser(source, indexer=indexer)
 
 
 def convert(source):
@@ -998,7 +1045,7 @@ def openfile(file, mode="r", encoding=None, buffering=-1,
              errors=None, newline=None, opener=None, indexer=None):
     f = open(file, mode, encoding=encoding, buffering=buffering,
              errors=errors, newline=newline, opener=opener)
-    return parse(f, indexer)
+    return parse(f, indexer=indexer)
 
 
 def is_vcard(object):

@@ -96,7 +96,7 @@ class csv_Converter:
         row = {
             "Formatted name": data["name"],
             "Name": data["struct_name"],
-            "Tel. Number": data["number"],
+            "Tel. Number": str(data["number"]),
         }
         if not permanent:
             row["vCard"] = vcard.repr_vcard()
