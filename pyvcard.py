@@ -112,23 +112,40 @@ class vCardIndexer:
     def vcards(self):
         return tuple(self._vcards)
 
-    def difference_search(self, type, value, diff_func, k=85):
+    def difference_search(self, type, value, diff_func, k=85, use_param=None):
         def filter_function(x):
             x = str(x)
             return diff_func(x, value) >= k
 
         if type == "name" or type == "names":
-            array = set(filter(filter_function, self._names.values()))
+            array = list(filter(filter_function, self._names.keys()))
+            array2 = []
+            for i in array:
+                for k in self._names[i]:
+                    array2.append(k)
+            array = set(array2)
         elif type == "phone" or type == "phones":
-            array = set(filter(filter_function, self._phones.values()))
+            array = list(filter(filter_function, self._phones.keys()))
+            array2 = []
+            for i in array:
+                for k in self._phones[i]:
+                    array2.append(k)
+            array = set(array2)
         elif type == "param" or type == "params":
-            array = []
-            for param in self._params:
-                for values in self._params[param]:
-                    temp = set(filter(filter_function, self._params[param][values]))
-                    array += temp
-            array = set(array)
-        return array
+            array = set()
+            if use_param is None:
+                for param in self._params:
+                    temp = set(filter(filter_function, self._params[param]))
+                    for i in temp:
+                        for j in self._params[param][i]:
+                            array.add(j)
+            else:
+                temp = set(filter(filter_function, self._params[use_param]))
+                array.update(temp)
+                for i in temp:
+                    for j in self._params[use_param][i]:
+                        array.add(j)
+        return tuple(array)
 
     def get_name(self, fn):
         return tuple(self._names[fn])
@@ -637,10 +654,10 @@ class _vCard:
         return name
 
     def contact_number(self):
-        name = None
+        name = []
         for i in self:
             if i.name == "TEL":
-                name = strinteger(i.values[0])
+                name.append(strinteger(i.values[0]))
         return name
 
     def _set_version(self, version):
@@ -680,10 +697,13 @@ class _vCard:
                 return arr
 
     def __contains__(self, key):
-        for i in self._attrs:
-            if i.name == key:
-                return True
-        return False
+        if not is_vcard_property(key):
+            for i in self._attrs:
+                if i.name == key:
+                    return True
+            return False
+        else:
+            return key in self._attrs
 
     def __iter__(self):
         return iter(self._attrs)
@@ -835,6 +855,46 @@ class vCardSet(set):
             s += vcard.repr_vcard(encode)
             s += "\n"
         return s
+
+    def difference_search(self, type, value, diff_func, k=85, use_param=None, indexsearch=True):
+        if indexsearch and self._indexer:
+            return self._indexer.difference_search(type, value, diff_func, k=k)
+
+        if type == "name" or type == "names":
+            attr = "name"
+        elif type == "phone" or type == "phones":
+            attr = "phone"
+        elif type == "param" or type == "params":
+            attr = "param"
+
+        def type_convert(x):
+            if isinstance(x, bytes):
+                return base64_encode(x)
+            else:
+                return str(x)
+
+        def filter_function(x):
+            if attr == "name":
+                x = x.contact_name()
+                return diff_func(x, value) >= k
+            elif attr == "phone":
+                x = x.contact_number()
+                for i in x:
+                    return diff_func(str(i), value) >= k
+                return False
+            elif attr == "param":
+                lst = []
+                for param in x:
+                    if (use_param is not None and param.name == use_param) or use_param is None:
+                        ivalue = ";".join(list(map(type_convert, param.values)))
+                        lst.append(diff_func(ivalue, value))
+                m = max(lst)
+                if m > 0:
+                    return m >= k
+                else:
+                    return False
+        array = tuple(set(filter(filter_function, self)))
+        return array
 
     def find_by_group(self, group, case=False, fullmatch=True, indexsearch=True):
         if indexsearch and self._indexer:
@@ -1072,9 +1132,6 @@ def parse_name_property(prop):
 TASK LIST:
 
 Version 1.0 alpha dev 1:
-find_by_property
-find_by_value
-Need some tests
 Exception/ warning messages enhancing
 Documentation
 Initial release
