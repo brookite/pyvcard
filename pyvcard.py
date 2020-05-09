@@ -14,8 +14,12 @@ line_warning = True
 
 
 class VERSION(enum.Enum):
+    """Enum of vCard versions. Supported 2.1-4.0 versions"""
     @staticmethod
     def get(version):
+        """
+        Returns version enum
+        """
         if version == "2.1":
             return VERSION.V2_1
         elif version == "3.0":
@@ -34,6 +38,9 @@ class _STATE(enum.Enum):
 
 
 class SOURCES(enum.Enum):
+    """
+    Enum of sources supported sources
+    """
     XML = "xml"
     JSON = "json"
     VCF = "vcf"
@@ -41,7 +48,19 @@ class SOURCES(enum.Enum):
 
 
 class vCardIndexer:
+    """
+    This class is used to create indexes for vСard, speeding up the search
+    This class does not guarantee a quick search, creators of third-party solutions
+    can inherit this class for their implementations
+    """
+
     def __init__(self, index_params=False):
+        """
+        Constructs a new instance.
+
+        :param      index_params:  Indexes all properties (not only phone and name)
+        :type       index_params:  boolean
+        """
         self._names = {}
         self._indexparams = index_params
         self._phones = {}
@@ -65,11 +84,26 @@ class vCardIndexer:
         return self._params
 
     def setindex(self, vcard):
+        """
+        Sets indexer as main for vCard
+
+        :param      vcard:  The target vCard
+        :type       vcard:  _vCard
+        """
         if is_vcard(vcard):
             vcard._indexer = self
             self._vcards.append(vcard)
 
     def index(self, entry, vcard):
+        """
+        Indexes property in vcard. Don't recommend for use in outer code
+        This method is used in vCard parsers
+
+        :param      entry:  vCard property
+        :type       entry:  _vCard_entry
+        :param      vcard:  The target vCard
+        :type       vcard:  _vCard
+        """
         if isinstance(entry, _vCard_entry):
             if entry.group is not None:
                 if entry.group not in self._groups:
@@ -113,6 +147,22 @@ class vCardIndexer:
         return tuple(self._vcards)
 
     def difference_search(self, type, value, diff_func, k=85, use_param=None):
+        """
+        Searches for specific parameters using a third-party function that returns an integer value similarity coefficient
+        (example: fuzzywuzzy module methods)
+
+        :param      type:       The type (name, phone, param)
+        :type       type:       str
+        :param      value:      The value that need find
+        :type       value:      str
+        :param      diff_func:  The difference function, returns integer value coefficient
+        :type       diff_func:  function or any callable object
+        :param      k:          the minimum value of the difference function at which it will be
+                                considered that the value is found
+        :type       k:          int
+        :param      use_param:  if not None and type is "param" finds only by property name
+        :type       use_param:  str or None
+        """
         def filter_function(x):
             x = str(x)
             return diff_func(x, value) >= k
@@ -148,18 +198,54 @@ class vCardIndexer:
         return tuple(array)
 
     def get_name(self, fn):
+        """
+        Gets the name in indexer.
+
+        :param      fn:   Full name
+        :type       fn:   str
+        """
         return tuple(self._names[fn])
 
     def get_phone(self, phone):
+        """
+        Gets the phone in indexer.
+
+        :param      phone:  The phone
+        :type       phone:  str or int
+        """
         return tuple(self._phones[phone])
 
     def get_param(self, param, value):
+        """
+        Gets the property values in indexer.
+
+        :param      param:  The parameter
+        :type       param:  str
+        :param      value:  The value
+        :type       value:  str
+        """
         return tuple(self._params[param][value])
 
     def get_group(self, group):
+        """
+        Gets the group in indexer.
+
+        :param      group:  The group
+        :type       group:  str
+        """
         return tuple(self._groups[group])
 
     def find_by_group(self, group, fullmatch=True, case=False):
+        """
+        Finds a by group in all indexed vcards.
+
+        :param      group:      The group
+        :type       group:      str
+        :param      fullmatch:  find by full match
+        :type       fullmatch:  boolean
+        :param      case:       case sensitivity
+        :type       case:       boolean
+        """
         if group in self._groups and fullmatch:
             return tuple(self._groups[group])
         elif not fullmatch:
@@ -185,6 +271,16 @@ class vCardIndexer:
             return tuple()
 
     def find_by_name(self, fn, case=False, fullmatch=True):
+        """
+        Finds a by name in all indexed vcards.
+
+        :param      fn:      The name (list will be joined by ';')
+        :type       fn:      str
+        :param      fullmatch:  find by full match
+        :type       fullmatch:  boolean
+        :param      case:       case sensitivity
+        :type       case:       boolean
+        """
         if fn in self._names and fullmatch:
             return tuple(self._names[fn])
         elif not fullmatch:
@@ -213,6 +309,16 @@ class vCardIndexer:
             return tuple()
 
     def find_by_phone(self, number, fullmatch=False, parsestr=True):
+        """
+        Finds a by phone number in all indexed vcards.
+
+        :param      number:      The phone number
+        :type       number:      str or int
+        :param      fullmatch:  find by full match
+        :type       fullmatch:  boolean
+        :param      parsestr:    remove all non-digit symbols(default: True)
+        :type       parsestr:       boolean
+        """
         if number in self._phones and fullmatch:
             return tuple(self._phones[number])
         elif not fullmatch:
@@ -236,6 +342,14 @@ class vCardIndexer:
             return tuple()
 
     def find_by_phone_endswith(self, number, parsestr=True):
+        """
+        Finds a by phone number ending in all indexed vcards.
+
+        :param      number:      The phone number ending
+        :type       number:      str or int
+        :param      parsestr:    remove all non-digit symbols(default: True)
+        :type       parsestr:       boolean
+        """
         if number in self._phones:
             return tuple(self._phones[number])
 
@@ -254,6 +368,14 @@ class vCardIndexer:
         return tuple(result)
 
     def find_by_phone_startswith(self, number, parsestr=True):
+        """
+        Finds a by start of phone number in all indexed vcards.
+
+        :param      number:      Start of phone number
+        :type       number:      str or int
+        :param      parsestr:    remove all non-digit symbols(default: True)
+        :type       parsestr:       boolean
+        """
         if number in self._phones:
             return tuple(self._phones[number])
 
@@ -272,6 +394,16 @@ class vCardIndexer:
         return tuple(result)
 
     def find_by_property(self, paramname, value, fullmatch=True):
+        """
+        Finds a by property name and value.
+
+        :param      paramname:  The property name
+        :type       paramname:  str
+        :param      value:      The value
+        :type       value:      str or list
+        :param      fullmatch:  find by full match
+        :type       fullmatch:  boolean
+        """
         if paramname in self._params:
             if value in self._params[paramname] and fullmatch:
                 return (self._params[paramname][value])
@@ -292,6 +424,14 @@ class vCardIndexer:
         return tuple(set(s))
 
     def find_by_value(self, value, fullmatch=True):
+        """
+        Finds a by property value.
+
+        :param      value:      The value
+        :type       value:      str or list
+        :param      fullmatch:  find by full match
+        :type       fullmatch:  boolean
+        """
         result = []
         for i in self._params:
             result += self.find_by_property(i, value, fullmatch)
@@ -299,10 +439,26 @@ class vCardIndexer:
 
 
 def quoted_to_str(string, encoding="utf-8"):
+    """
+    Decodes Quoted-Printable text to string with encoding
+
+    :param      string:    The target string
+    :type       string:    str
+    :param      encoding:  The encoding, default is UTF-8
+    :type       encoding:  str
+    """
     return quopri.decodestring(string).decode(encoding)
 
 
 def str_to_quoted(string, encoding="utf-8"):
+    """
+    Encoded string to Quoted-Printable text with encoding
+
+    :param      string:    The target string
+    :type       string:    str
+    :param      encoding:  The encoding, default is UTF-8
+    :type       encoding:  str
+    """
     string = string.encode(encoding)
     qp = ""
     for i in string:
@@ -312,14 +468,37 @@ def str_to_quoted(string, encoding="utf-8"):
 
 
 def base64_encode(value):
+    """
+    Encodes bytes to base64 encoding
+
+    :param      value:  The value
+    :type       value:  bytes
+
+    Retutns base64 encoded string
+    """
     return base64.b64encode(value).decode("utf-8")
 
 
 def base64_decode(value):
+    """
+    Decodes base64 to bytes
+
+    :param      value:  The value
+    :type       value:  bytes
+
+    Retutns base64 decoded bytes
+    """
     return base64.b64decode(value)
 
 
 def strinteger(string):
+    """
+    Clears a string from non-numeric characters
+    :param      string:  The string
+    :type       string:  str
+
+    Returns a int or a float (if '.' was in string)
+    """
     n = ""
     if isinstance(string, int) or string == "":
         return string
@@ -332,6 +511,14 @@ def strinteger(string):
 
 
 def escape(string, characters=[";", ",", "\n", "\r"]):
+    """
+    Escapes listed characters with a character \\
+
+    :param      string:            The string
+    :type       string:            str
+    :param      characters:        The characters
+    :type       characters:        Array
+    """
     if not isinstance(string, str):
         return string
     for char in characters:
@@ -348,6 +535,14 @@ def escape(string, characters=[";", ",", "\n", "\r"]):
 
 
 def unescape(string, only_double=False):
+    """
+    Unescapes all escaped characters
+
+    :param      string:       The string
+    :type       string:       str
+    :param      only_double:  If need unescape only double '\\' characters
+    :type       only_double:  boolean
+    """
     if string is None or isinstance(string, bytes):
         return string
     if only_double:
@@ -362,18 +557,48 @@ def unescape(string, only_double=False):
 
 
 def decode_property(property):
+    """
+    Utility method. Don't recommend for use in outer code
+    Decodes a property.
+
+    :param      property:  The property
+    :type       property:  { type_description }
+    """
+    charset = "utf-8"
+    if "CHARSET" in property._params:
+        charset = property._params["CHARSET"].lower()
     if "ENCODING" in property._params:
         for i in range(len(property._values)):
             if property._params["ENCODING"] == "QUOTED-PRINTABLE":
                 if property._values[i] != '':
-                    property._values[i] = quoted_to_str(property._values[i])
+                    property._values[i] = quoted_to_str(property._values[i], charset)
             elif property._params["ENCODING"] in ["B", "BASE64"]:
                 if property._values[i] != '':
-                    property._values[i] = base64_decode(property._values[i].encode("utf-8"))
+                    property._values[i] = base64_decode(property._values[i].encode(charset))
 
 
 class _vCard_entry:
+    """
+    This class describes a vCard property
+    """
+
     def __init__(self, name, values, params={}, group=None, version="4.0", encoded=True):
+        """
+        Constructs a new instance of property.
+
+        :param      name:     The name
+        :type       name:     str
+        :param      values:   The values
+        :type       values:   list
+        :param      params:   The parameters
+        :type       params:   dict
+        :param      group:    The group
+        :type       group:    str or None
+        :param      version:  The version, default is 4.0
+        :type       version:  string
+        :param      encoded:  If decoding wasn't complete
+        :type       encoded:  boolean
+        """
         self._name = name
         self._params = params
         self._values = list(values)
@@ -391,7 +616,41 @@ class _vCard_entry:
     def __bool__(self):
         return True
 
+    def __eq__(self, other):
+        if id(self) == id(other):
+            return True
+        if type(self) != type(other):
+            return False
+        if self._name != other._name:
+            return False
+        if self._params != other._params:
+            return False
+        if self._group != other._group:
+            return False
+        if self._values != other._values:
+            return False
+        if self._version != other._version:
+            return False
+        return True
+
+    def __hash__(self):
+        hashcode = 0
+        hashcode += hash(self._name)
+        for key in self._params:
+            hashcode += hash(self._params[key])
+        for i in self._values:
+            hashcode += hash(i)
+        hashcode += hash(self._group)
+        hashcode += hash(self._version)
+        return hashcode
+
     def repr_vcard(self, encode=True):
+        """
+        Returns a string representation of entry
+
+        :param      encode:  encode property (like bytes, or quoted-printable)
+        :type       encode:  boolean
+        """
         if self.group is not None:
             string = f"{self.group}."
         else:
@@ -450,6 +709,10 @@ class _vCard_entry:
 
 
 def _unfold_lines(strings):
+    """
+    Utility method. Don't recommend for use in outer code
+    Unfolds the lines in list
+    """
     lines = []
     for string in strings:
         string.replace("\n", "")
@@ -469,6 +732,10 @@ def _unfold_lines(strings):
 
 
 def _fold_line(string, expect_quopri=False):
+    """
+    Utility method. Don't recommend for use in outer code
+    Folds the line, may expect quoted-printable
+    """
     if len(string) > 75:
         cuts = len(string) // 75
         strings = []
@@ -493,6 +760,10 @@ def _fold_line(string, expect_quopri=False):
 
 
 def _parse_line(string, version):
+    """
+    Utility method. Don't recommend for use in outer code
+    Parses a unfolded line and returns a array for parser
+    """
     m1 = re.match(VCARD_BORDERS, string)
     if m1:
         return _STATE.BEGIN if m1.group(3) == "BEGIN" else _STATE.END
@@ -539,6 +810,12 @@ def _parse_line(string, version):
 
 
 def parse_property(string):
+    """
+    Parses a property
+
+    :param      string:  The string
+    :type       string:  str
+    """
     c = _parse_line(string)
     if c is None:
         return None
@@ -547,6 +824,10 @@ def parse_property(string):
 
 
 def _parse_lines(strings, indexer=None):
+    """
+    Utility method. Don't recommend for use
+    Parses lines in list, indexer is supported
+    """
     version = "4.0"
     vcard = _vCard()
     args = []
@@ -586,6 +867,10 @@ def _parse_lines(strings, indexer=None):
 
 
 class _vCard_Parser:
+    """
+    Parses a vCard files (VCF) or any vCard string
+    """
+
     def __init__(self, source, indexer=None):
         self.indexer = indexer
         if isinstance(source, str):
@@ -607,10 +892,18 @@ class _vCard_Parser:
                 raise IOError("Source is not file")
 
     def vcards(self):
+        """
+        :returns:   result of parsing
+        :rtype:     vCardSet
+        """
         return vCardSet(self.__args, indexer=self.indexer)
 
 
 class _vCard:
+    """
+    This class describes a vCard object representation.
+    """
+
     def __init__(self, args=[], version=None):
         self._attrs = args
         self._indexer = None
@@ -627,7 +920,57 @@ class _vCard:
     def version(self):
         return VERSION.get(self._version)
 
+    def __eq__(self, other):
+        if id(self) == id(other):
+            return True
+        if type(self) != type(other):
+            return False
+        if self.contact_data() != other.contact_data():
+            return False
+        if len(self) != len(other):
+            return False
+        for i in range(len(self)):
+            if self[i] != other[i]:
+                return False
+        if self.indexer != other.indexer:
+            return False
+        if self.version != other.version:
+            return False
+        return True
+
+    def __hash__(self):
+        hashcode = 0
+        if self._indexer is None:
+            hashcode += 0
+        else:
+            hashcode += hash(self._indexer)
+        if self._version is None:
+            hashcode += 0
+        else:
+            hashcode += hash(self._indexer)
+        for i in self:
+            hashcode += hash(i)
+        contact = self.contact_data()
+        for i in contact:
+            if isinstance(contact[i], list) or isinstance(contact[i], tuple):
+                for k in contact[i]:
+                    hashcode += hash(k)
+            elif isinstance(contact[i], dict):
+                for k in contact[i]:
+                    hashcode += hash(contact[i][k])
+            else:
+                hashcode += hash(contact[i])
+        return hashcode
+
     def contact_data(self):
+        """
+        Returns main data of vCard:
+        1. Full Name
+        2. Struct Name - dict
+        3. Phone Number - list
+        If one of value is not defined - they equals None
+        Returns a dict with keys "name", "number", "struct_name"
+        """
         obj = dict.fromkeys(["name", "number", "struct_name"], None)
         obj["number"] = []
         for i in self:
@@ -636,10 +979,13 @@ class _vCard:
             elif i.name == "TEL":
                 obj["number"].append(strinteger(i.values[0]))
             elif i.name == "N":
-                obj["struct_name"] = ";".join(i.values)
+                obj["struct_name"] = parse_name_property(i.values)
         return obj
 
     def contact_name(self):
+        """
+        Returns full name in vCard or None
+        """
         name = None
         for i in self:
             if i.name == "FN":
@@ -647,13 +993,19 @@ class _vCard:
         return name
 
     def contact_structname(self):
+        """
+        Returns dict with structured name or None
+        """
         name = None
         for i in self:
-            if i.name == "TEL":
-                obj["struct_name"] = ";".join(i.values)
+            if i.name == "N":
+                name = parse_name_property(i.values)
         return name
 
     def contact_number(self):
+        """
+        Returns a list with phone numbers in vCard
+        """
         name = []
         for i in self:
             if i.name == "TEL":
@@ -673,6 +1025,12 @@ class _vCard:
         return self.repr_vcard().encode("utf-8")
 
     def repr_vcard(self, encode=True):
+        """
+        Returns a string representation of vCard
+
+        :param      encode:  encode property (like bytes, or quoted-printable)
+        :type       encode:  boolean
+        """
         string = "BEGIN:VCARD"
         for i in self:
             string += "\n"
@@ -684,6 +1042,15 @@ class _vCard:
         return len(self._attrs)
 
     def __getitem__(self, key):
+        """
+        Gets property in vCard
+
+        :param      key:  The key, if number - returns by a index, if name - returns by a first occurence of name
+        :type       key:  int or str
+
+        :returns:   { description_of_the_return_value }
+        :rtype:     { return_type_description }
+        """
         if isinstance(key, int):
             return self._attrs[key]
         else:
@@ -713,6 +1080,18 @@ class _vCard:
         return tuple(self._attrs)
 
     def find_by_group(self, group, case=False, fullmatch=True, indexsearch=True):
+        """
+        Finds a by group.
+
+        :param      group:        The group
+        :type       group:        str
+        :param      case:         case sensitivity
+        :type       case:         boolean
+        :param      fullmatch:    finds by a full match
+        :type       fullmatch:    boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if self._indexer and indexsearch:
             return self._indexer.find_by_group(group, case=case, fullmatch=fullmatch)
         else:
@@ -734,6 +1113,18 @@ class _vCard:
             return []
 
     def find_by_name(self, fn, case=False, fullmatch=True, indexsearch=True):
+        """
+        Finds a by name.
+
+        :param      fn:           The full name or structured name joined by ";"
+        :type       fn:           str
+        :param      case:         case sensitivity
+        :type       case:         boolean
+        :param      fullmatch:    finds by a full match
+        :type       fullmatch:    boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if self._indexer and indexsearch:
             return self._indexer.find_by_name(fn, case, fullmatch)
         else:
@@ -752,6 +1143,18 @@ class _vCard:
             return []
 
     def find_by_phone(self, number, fullmatch=True, parsestr=True, indexsearch=True):
+        """
+        Finds a by phone number.
+
+        :param      number:       The number
+        :type       number:       str or int
+        :param      fullmatch:    The fullmatch
+        :type       fullmatch:    boolean
+        :param      parsestr:     remove all non-digit symbols(default: True)
+        :type       parsestr:     boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if self._indexer and indexsearch:
             return self._indexer.find_by_phone(number, fullmatch, parsestr)
         else:
@@ -769,6 +1172,16 @@ class _vCard:
             return r
 
     def find_by_phone_endswith(self, number, parsestr=True, indexsearch=True):
+        """
+        Finds a by phone number ending.
+
+        :param      number:       The number
+        :type       number:       str or int
+        :param      parsestr:     remove all non-digit symbols(default: True)
+        :type       parsestr:     boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if self._indexer and indexsearch:
             return self._indexer.find_by_phone_endswith(number, parsestr)
         else:
@@ -784,6 +1197,16 @@ class _vCard:
             return r
 
     def find_by_phone_startswith(self, number, parsestr=True, indexsearch=True):
+        """
+        Finds a by starts of a phone.
+
+        :param      number:       The number
+        :type       number:       str or int
+        :param      parsestr:     remove all non-digit symbols(default: True)
+        :type       parsestr:     boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if self._indexer and indexsearch:
             return self._indexer.find_by_phone_startswith(number, parsestr)
         else:
@@ -799,6 +1222,18 @@ class _vCard:
             return r
 
     def find_by_property(self, paramname, value, fullmatch=True, indexsearch=True):
+        """
+        Finds a by property name and value.
+
+        :param      paramname:    The property name
+        :type       paramname:    str
+        :param      value:        The value
+        :type       value:        str or list
+        :param      fullmatch:    finds by a full match
+        :type       fullmatch:    boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if self._indexer and indexsearch:
             return self._indexer.find_by_property(paramname, value, fullmatch)
         else:
@@ -820,6 +1255,16 @@ class _vCard:
             return []
 
     def find_by_value(self, value, fullmatch=True, indexsearch=True):
+        """
+        Finds a by property value.
+
+        :param      value:        The property value
+        :type       value:        str
+        :param      fullmatch:    finds by a full match
+        :type       fullmatch:    boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if self._indexer and indexsearch:
             return self._indexer.find_by_value(value, fullmatch)
         else:
@@ -832,6 +1277,10 @@ class _vCard:
 
 
 class vCardSet(set):
+    """
+    This class describes a set with vCard objects
+    """
+
     def __init__(self, iter=[], indexer=None):
         super().__init__(iter)
         for object in iter:
@@ -840,16 +1289,34 @@ class vCardSet(set):
         self._indexer = indexer
 
     def add(self, vcard):
+        """
+        Adds the specified vCard.
+
+        :param      vcard:  The vCard
+        :type       vcard:  _vCard
+        """
         if isinstance(vcard, _VCard):
             super().add(vcard)
 
     def setindex(self, indexer):
+        """
+        Sets indexer for this object
+
+        :param      indexer:  The indexer
+        :type       indexer:  instance of vCardIndexer
+        """
         if isinstance(indexer, vCardIndexer):
             self._indexer = indexer
         else:
             raise TypeError("Required vCardIndexer instance")
 
     def repr_vcard(self, encode=True):
+        """
+        Returns a string representation of vCard
+
+        :param      encode:  encode property (like bytes, or quoted-printable)
+        :type       encode:  boolean
+        """
         s = ""
         for vcard in self:
             s += vcard.repr_vcard(encode)
@@ -857,6 +1324,24 @@ class vCardSet(set):
         return s
 
     def difference_search(self, type, value, diff_func, k=85, use_param=None, indexsearch=True):
+        """
+        Searches for specific parameters using a third-party function that returns an integer value similarity coefficient
+        (example: fuzzywuzzy module methods)
+
+        :param      type:       The type (name, phone, param)
+        :type       type:       str
+        :param      value:      The value that need find
+        :type       value:      str
+        :param      diff_func:  The difference function, returns integer value coefficient
+        :type       diff_func:  function or any callable object
+        :param      k:          the minimum value of the difference function at which it will be
+                                considered that the value is found
+        :type       k:          int
+        :param      use_param:  if not None and type is "param" finds only by property name
+        :type       use_param:  str or None
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if indexsearch and self._indexer:
             return self._indexer.difference_search(type, value, diff_func, k=k)
 
@@ -897,6 +1382,18 @@ class vCardSet(set):
         return array
 
     def find_by_group(self, group, case=False, fullmatch=True, indexsearch=True):
+        """
+        Finds a by group.
+
+        :param      group:        The group
+        :type       group:        str
+        :param      case:         case sensitivity
+        :type       case:         boolean
+        :param      fullmatch:    finds by a full match
+        :type       fullmatch:    boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if indexsearch and self._indexer:
             return self._indexer.find_by_group(group, case=case, fullmatch=fullmatch)
         else:
@@ -909,6 +1406,18 @@ class vCardSet(set):
             return tuple(result)
 
     def find_by_name(self, fn, case=False, fullmatch=True, indexsearch=True):
+        """
+        Finds a by name.
+
+        :param      fn:           The full name or structured name joined by ";"
+        :type       fn:           str
+        :param      case:         case sensitivity
+        :type       case:         boolean
+        :param      fullmatch:    finds by a full match
+        :type       fullmatch:    boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if indexsearch and self._indexer:
             return self._indexer.find_by_name(fn, case, fullmatch)
         else:
@@ -921,6 +1430,18 @@ class vCardSet(set):
             return tuple(result)
 
     def find_by_phone(self, number, fullmatch=False, parsestr=True, indexsearch=True):
+        """
+        Finds a by phone number.
+
+        :param      number:       The number
+        :type       number:       str or int
+        :param      fullmatch:    The fullmatch
+        :type       fullmatch:    boolean
+        :param      parsestr:     remove all non-digit symbols(default: True)
+        :type       parsestr:     boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if indexsearch and self._indexer:
             return self._indexer.find_by_phone(number, fullmatch, parsestr)
         else:
@@ -933,6 +1454,16 @@ class vCardSet(set):
             return tuple(result)
 
     def find_by_phone_endswith(self, number, parsestr=True, indexsearch=True):
+        """
+        Finds a by phone number ending.
+
+        :param      number:       The number
+        :type       number:       str or int
+        :param      parsestr:     remove all non-digit symbols(default: True)
+        :type       parsestr:     boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if indexsearch and self._indexer:
             return self._indexer.find_by_phone_endswith(number, parsestr)
         else:
@@ -945,6 +1476,16 @@ class vCardSet(set):
             return tuple(result)
 
     def find_by_phone_startswith(self, number, parsestr=True, indexsearch=True):
+        """
+        Finds a by starts of a phone.
+
+        :param      number:       The number
+        :type       number:       str or int
+        :param      parsestr:     remove all non-digit symbols(default: True)
+        :type       parsestr:     boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if indexsearch and self._indexer:
             return self._indexer.find_by_phone_startswith(number, parsestr)
         else:
@@ -957,6 +1498,18 @@ class vCardSet(set):
             return tuple(result)
 
     def find_by_property(self, paramname, value, fullmatch=True, indexsearch=True):
+        """
+        Finds a by property name and value.
+
+        :param      paramname:    The property name
+        :type       paramname:    str
+        :param      value:        The value
+        :type       value:        str or list
+        :param      fullmatch:    finds by a full match
+        :type       fullmatch:    boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if indexsearch and self._indexer:
             return self._indexer.find_by_property(paramname, value, fullmatch)
         else:
@@ -969,6 +1522,16 @@ class vCardSet(set):
             return tuple(result)
 
     def find_by_value(self, value, fullmatch=True, indexsearch=True):
+        """
+        Finds a by property value.
+
+        :param      value:        The property value
+        :type       value:        str
+        :param      fullmatch:    finds by a full match
+        :type       fullmatch:    boolean
+        :param      indexsearch:  use indexer in search if defined (default is True)
+        :type       indexsearch:  boolean
+        """
         if indexsearch and self._indexer:
             return self._indexer.find_by_value(value, fullmatch)
         else:
@@ -982,7 +1545,17 @@ class vCardSet(set):
 
 
 class _vCard_Converter:
+    """
+    This class describes a vCard converter to various sources.
+    """
+
     def __init__(self, source):
+        """
+        Constructs a new instance.
+
+        :param      source:  The source
+        :type       source:  _VCard or vCardSet
+        """
         if isinstance(source, _vCard) or isinstance(source, vCardSet):
             self.source = source
             self._value = source.repr_vcard()
@@ -990,32 +1563,73 @@ class _vCard_Converter:
             raise TypeError("Required VCard type")
 
     def file(self, filename, encoding="utf-8"):
+        """
+        Creates a file using filename and encoding
+
+        :param      filename:  The filename
+        :type       filename:  str
+        :param      encoding:  The encoding
+        :type       encoding:  string
+        """
         with open(filename, "w", encoding=encoding) as f:
             f.write(self._value)
 
     def string(self):
+        """
+        Returns a vCard string representation
+        """
         return self._value
 
     def bytes(self):
+        """
+        Returns a vCard string representation in bytes
+        """
         return bytes(self._value)
 
     def csv(self):
+        """
+        Return a vCard converter object to CSV
+        """
         return csv_Converter(self.source)
 
     def json(self):
+        """
+        Return a vCard converter object to JSON
+        """
         return jCard_Converter(self.source)
 
     def xml(self):
+        """
+        Return a vCard converter object to XML
+        """
         return xCard_Converter(self.source)
 
 
 class _vCard_Builder:
+    """
+    Front-end to create vCard objects step by step.
+    """
+
     def __init__(self, version="4.0", indexer=None):
         self.indexer = indexer
         self._properties = []
         self._version = version
 
     def add_property(self, name, value, params={}, group=None, encoding_raw=False):
+        """
+        Adds a property. Low-level function
+
+        :param      name:          The name
+        :type       name:          str
+        :param      value:         The value
+        :type       value:         list or str
+        :param      params:        The parameters
+        :type       params:        dict
+        :param      group:         The group
+        :type       group:         str or None
+        :param      encoding_raw:  If property is encoded
+        :type       encoding_raw:  boolean
+        """
         if isinstance(value, str):
             value = [value]
         elif isinstance(value, bytes):
@@ -1035,10 +1649,22 @@ class _vCard_Builder:
         self._properties.append(entry)
 
     def set_phone(self, number):
+        """
+        Sets the phone.
+
+        :param      number:  The number
+        :type       number:  str or int
+        """
         tel = _vCard_entry("TEL", [str(number)])
         self._properties.append(tel)
 
     def set_name(self, name):
+        """
+        Sets the full name and structured name.
+
+        :param      name:  The full name
+        :type       name:  str
+        """
         for i in self._properties:
             if i.name == "N" or i.name == "FN":
                 raise KeyError("Key already exists")
@@ -1058,11 +1684,20 @@ class _vCard_Builder:
         self._properties.append(entry2)
 
     def set_version(self, version):
+        """
+        Sets the version.
+
+        :param      version:  The version
+        :type       version:  str or VERSIOn enum
+        """
         if version in ["2.1", "3.0", "4.0"]:
             self._version = version
             self.add_property("VERSION", version)
 
     def build(self):
+        """
+        Returns vCard object
+        """
         if len(self._properties) != 0:
             vcard = _vCard(args=self._properties, version=self._version)
             if self.indexer is not None:
@@ -1073,18 +1708,45 @@ class _vCard_Builder:
             raise ValueError("Empty vCard")
 
     def clear(self):
+        """
+        Clears all properties.
+        """
         self._properties = []
 
 
 def parse(source, indexer=None):
+    """
+    Returns a vCard parser object
+
+    :param      source:   The source
+    :type       source:   file descriptor or str
+    :param      indexer:  The indexer that will be set
+    :type       indexer:  instance of vCardIndexer or None
+    """
     return _vCard_Parser(source, indexer=indexer)
 
 
 def convert(source):
+    """
+    Returns a vCard converter object
+
+    :param      source:  The source
+    :type       source: _vCard or vCardSet
+    """
     return _vCard_Converter(source)
 
 
 def parse_from(source, type, indexer=None):
+    """
+    Parses vCard from various sources (see SOURCES enum)
+
+    :param      source:   The source
+    :type       source:   str
+    :param      type:     The type
+    :type       type:     str or SOURCES enum
+    :param      indexer:  The indexer
+    :type       indexer:  instance of vCardIndexer or None
+    """
     if type == SOURCES.XML or type == "xml":
         return xCard_Parser(source, indexer)
     elif type == SOURCES.JSON or type == "json":
@@ -1098,33 +1760,75 @@ def parse_from(source, type, indexer=None):
 
 
 def builder(indexer=None, version="4.0"):
+    """
+    Returns a vCard object builder
+
+    :param      indexer:  The indexer
+    :type       indexer: instance of vCardIndexer or None
+    :param      version:  The version
+    :type       version:  string
+    """
     return _vCard_Builder(indexer=indexer, version=version)
 
 
 def openfile(file, mode="r", encoding=None, buffering=-1,
              errors=None, newline=None, opener=None, indexer=None):
+    """
+    Opens a file for parsing vCard files (vcf). Returns a parser
+
+    The arguments are similar to the standard function 'open'.
+    :param      indexer:    The indexer
+    :type       indexer:    instance of vCardIndexer or None
+    """
     f = open(file, mode, encoding=encoding, buffering=buffering,
              errors=errors, newline=newline, opener=opener)
     return parse(f, indexer=indexer)
 
 
 def is_vcard(object):
+    """
+    Determines whether the specified object is vCard object.
+
+    :param      object:  The object
+    :type       object:  any type
+    """
     return isinstance(object, _vCard)
 
 
 def is_vcard_property(object):
+    """
+    Determines whether the specified object is vCard property object.
+
+    :param      object:  The object
+    :type       object:  any type
+    """
     return isinstance(object, _vCard_entry)
 
 
 def parse_name_property(prop):
+    """
+    Parses name property list to dict with keys: surname, given_name, additional_name,
+    prefix, suffix
+
+    :param      prop:  vCard property or array
+    :type       prop:  _vCard_entry or array
+    """
     result = None
-    if prop.name == "N":
+    if is_vcard_property(prop):
+        if prop.name == "N":
+            result = {}
+            result["surname"] = prop.values[0]
+            result["given_name"] = prop.values[1]
+            result["additional_name"] = prop.values[2]
+            result["prefix"] = prop.values[3]
+            result["suffix"] = prop.values[4]
+    else:
         result = {}
-        result["surname"] = prop.values[0]
-        result["given_name"] = prop.values[1]
-        result["additional_name"] = prop.values[2]
-        result["prefix"] = prop.values[3]
-        result["suffix"] = prop.values[4]
+        result["surname"] = prop[0]
+        result["given_name"] = prop[1]
+        result["additional_name"] = prop[2]
+        result["prefix"] = prop[3]
+        result["suffix"] = prop[4]
     return result
 
 
