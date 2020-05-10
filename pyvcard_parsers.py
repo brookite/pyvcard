@@ -7,6 +7,9 @@ import json
 
 
 def get_string(obj):
+    """
+    Gets the string from file or str. Utility method
+    """
     if isinstance(obj, str):
         return obj
     elif hasattr(obj, "close"):
@@ -22,6 +25,11 @@ def get_string(obj):
 
 
 class xCard_Parser:
+    """
+    This class describes a XML to vCard object parser
+    xCard (RFC 6351)
+    """
+
     def __init__(self, xcard, indexer=None):
         self.xcard = xcard
         self.indexer = indexer
@@ -38,6 +46,12 @@ class xCard_Parser:
         return re.sub(r"{.+}", "", tag.tag)
 
     def vcards(self):
+        """
+        Returns result of parsing
+
+        :returns:   vCard objects
+        :rtype:     vCardSet
+        """
         vcards = []
         root = et.fromstring(get_string(self.xcard))
         for node in root:
@@ -119,11 +133,21 @@ class xCard_Parser:
 
 
 class csv_Parser:
+    """
+    This class describes a CSV to vCard object parser
+    """
+
     def __init__(self, csv, indexer=None):
         self.csv = csv
         self.indexer = indexer
 
     def vcards(self):
+        """
+        Returns result of parsing
+
+        :returns:   vCard objects
+        :rtype:     vCardSet
+        """
         strio = io.StringIO(get_string(self.csv))
         reader = DictReader(strio, delimiter=",")
         raw = list(reader)
@@ -134,6 +158,10 @@ class csv_Parser:
 
 
 class jCard_Parser:
+    """
+    This class describes a JSON to vCard object parser
+    jCard (RFC 7095)
+    """
     class jCard_ValidationError(Exception):
         pass
 
@@ -145,6 +173,9 @@ class jCard_Parser:
             self.source = source
 
     def parse_vcard(self, vcard):
+        """
+        Utility method
+        """
         factory = pyvcard.builder(self.indexer)
         if vcard[0] != "vcard":
             raise self.jCard_ValidationError("jCard isn't match to standard")
@@ -175,6 +206,12 @@ class jCard_Parser:
         return factory.build()
 
     def vcards(self):
+        """
+        Returns result of parsing
+
+        :returns:   vCard objects
+        :rtype:     vCardSet
+        """
         vcards = []
         if self.source[0] == "vcard":
             vcards.append(self.parse_vcard(self.source))

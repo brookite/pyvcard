@@ -12,6 +12,14 @@ from pyvcard_parsers import *
 validate_vcards = True
 line_warning = True
 
+"""
+Used official vCard standards
+RFC 2426 - vCard 3.0
+RFC 6350 - vCard 4.0
+RFC 6351 - xCard
+RFC 7095 - jCard
+"""
+
 
 class VERSION(enum.Enum):
     """Enum of vCard versions. Supported 2.1-4.0 versions"""
@@ -889,7 +897,7 @@ class _vCard_Parser:
                 else:
                     raise IOError("File is closed")
             else:
-                raise IOError("Source is not file")
+                raise IOError(f"Source is not file, type is {type(source)}")
 
     def vcards(self):
         """
@@ -1285,7 +1293,7 @@ class vCardSet(set):
         super().__init__(iter)
         for object in iter:
             if not is_vcard(object):
-                raise TypeError("VCardSet requires VCard objects")
+                raise TypeError("vCardSet requires only vCard objects")
         self._indexer = indexer
 
     def add(self, vcard):
@@ -1308,7 +1316,7 @@ class vCardSet(set):
         if isinstance(indexer, vCardIndexer):
             self._indexer = indexer
         else:
-            raise TypeError("Required vCardIndexer instance")
+            raise TypeError(f"Required vCardIndexer instance, not {type(indexer)}")
 
     def repr_vcard(self, encode=True):
         """
@@ -1560,7 +1568,7 @@ class _vCard_Converter:
             self.source = source
             self._value = source.repr_vcard()
         else:
-            raise TypeError("Required VCard type")
+            raise TypeError(f"Required vCard or vCardSet type, not {type(source)}")
 
     def file(self, filename, encoding="utf-8"):
         """
@@ -1667,7 +1675,7 @@ class _vCard_Builder:
         """
         for i in self._properties:
             if i.name == "N" or i.name == "FN":
-                raise KeyError("Key already exists")
+                raise KeyError("Key 'N' and 'FN' already exists")
         if isinstance(name, str):
             fname = name
             name = name.split(" ")
@@ -1756,7 +1764,7 @@ def parse_from(source, type, indexer=None):
     elif type == SOURCES.VCF:
         return parse(source, indexer)
     else:
-        raise TypeError("Type isn't found")
+        raise TypeError(f"Type {type} isn't found")
 
 
 def builder(indexer=None, version="4.0"):
@@ -1832,15 +1840,3 @@ def parse_name_property(prop):
     return result
 
 
-"""
-TASK LIST:
-
-Version 1.0 alpha dev 1:
-Exception/ warning messages enhancing
-Documentation
-Initial release
-
-Version 1.0 alpha dev 2:
-hCard (HTML)
-maybe: property types struct
-"""

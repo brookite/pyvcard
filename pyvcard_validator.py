@@ -49,15 +49,35 @@ VALUE_TYPE = [
 ]
 
 
-def validate_bool_wrapper(validator_func):
+def validate_bool_wrapper(validator_func, *args, **kwargs):
+    """
+    Returns boolean value of validator function instead exception
+    
+    :param      validator_func:  The validator function
+    :type       validator_func:  function
+    :param      args:            The arguments of validator function
+    :type       args:            list
+    :param      kwargs:          The keywords arguments of validator function
+    :type       kwargs:          dictionary
+    """
     try:
-        validator_func()
+        validator_func(*args, **kwargs)
         return True
     except Exception:
         return False
 
 
 def values_count_required(property, mincount, maxcount):
+    """
+    Validates value count in property. Utility function
+
+    :param      property:  The property
+    :type       property:  _vCard_entry
+    :param      mincount:  The mincount
+    :type       mincount:  int
+    :param      maxcount:  The maxcount
+    :type       maxcount:  int
+    """
     if len(property.values) < mincount:
         raise VCardValidationError(f"Values count must be >= {mincount}", property)
     elif len(property.values) > maxcount:
@@ -65,6 +85,16 @@ def values_count_required(property, mincount, maxcount):
 
 
 def params_count_required(property, mincount, maxcount):
+    """
+    Validates value count in property. Utility function
+
+    :param      property:  The property
+    :type       property:  _vCard_entry
+    :param      mincount:  The mincount
+    :type       mincount:  int
+    :param      maxcount:  The maxcount
+    :type       maxcount:  int
+    """
     if len(property.params) < mincount:
         raise VCardValidationError(f"Values count must be >= {mincount}", property)
     elif len(property.params) > maxcount:
@@ -72,6 +102,18 @@ def params_count_required(property, mincount, maxcount):
 
 
 def validate_value_parameter(property, values, param_required=False, text_allowed=True):
+    """
+    Validates "VALUE" parameter in property
+
+    :param      property:        The property
+    :type       property:        _vCard_entry
+    :param      values:          The values
+    :type       values:          list
+    :param      param_required:  The parameter 'VALUE' in property required
+    :type       param_required:  boolean
+    :param      text_allowed:    If 'text' in VALUE parameter will be allowed
+    :type       text_allowed:    boolean
+    """
     if "VALUE" in property.params:
         val = property.params["VALUE"].lower()
         if val not in values:
@@ -83,21 +125,55 @@ def validate_value_parameter(property, values, param_required=False, text_allowe
 
 
 def validate_text(value, property=None):
+    """
+    Validates text type value. Property if not None will be saved in exception
+
+    :param      value:     The value
+    :type       value:     str
+    :param      property:  The property
+    :type       property:  _vCard_entry or None
+    """
     if not re.match(VALID_TEXT, value):
         raise VCardValidationError("Text isn't match", property)
 
 
 def validate_group(group, property=None):
+    """
+    Validates group in property. Property if not None will be saved in exception
+
+    :param      value:     The value
+    :type       value:     str
+    :param      property:  The property
+    :type       property:  _vCard_entry or None
+    """
     if not re.match(GROUP, group):
         raise VCardValidationError("Group isn't match", property)
 
 
 def validate_text_list(value, property=None):
+    """
+    Validates text list type value. Property if not None will be saved in exception
+
+    :param      value:     The value
+    :type       value:     str
+    :param      property:  The property
+    :type       property:  _vCard_entry or None
+    """
     if not re.match(VALID_TEXTLIST, value):
         raise VCardValidationError("Text list isn't match", property)
 
 
 def validate_datetime(value, subtype, property=None):
+    """
+    Validates date and time values. Property if not None will be saved in exception 
+    
+    :param      value:     The value
+    :type       value:     str
+    :param      subtype:   The subtype of date or time ("datetime", "time", "date")
+    :type       subtype:   str
+    :param      property:  The property
+    :type       property:  _vCard_entry or None
+    """
     if subtype == "datetime":
         pattern = VAILD_TIMESTAMP
     elif subtype == "time":
@@ -116,48 +192,91 @@ def validate_datetime(value, subtype, property=None):
 
 
 def validate_float(value, property=None):
+    """
+    Validates text type value. Property if not None will be saved in exception
+
+    :param      value:     The value
+    :type       value:     str
+    :param      property:  The property
+    :type       property:  _vCard_entry
+    """
     if re.match(VALID_FLOAT, value) is None:
         raise VCardValidationError("Float isn't match", property)
 
 
 def validate_integer(value, property=None):
+    """
+    Validates integer type value. Property if not None will be saved in exception
+
+    :param      value:     The value
+    :type       value:     str
+    :param      property:  The property
+    :type       property:  _vCard_entry or None
+    """
     if re.match(VALID_INTEGER, value) is None:
         raise VCardValidationError("Integer isn't match", property)
 
 
 def validate_utc_offset(value, property=None):
+    """
+    Validates text type value. Property if not None will be saved in exception
+
+    :param      value:     The value
+    :type       value:     str
+    :param      property:  The property
+    :type       property:  _vCard_entry or None
+    """
     if re.match(VALID_TZ, value) is None:
         raise VCardValidationError("UTC offset isn't match", property)
 
 
 def validate_language_tag(value, property=None):
+    """
+    Validates language tag type value. Property if not None will be saved in exception
+
+    :param      value:     The value
+    :type       value:     str
+    :param      property:  The property
+    :type       property:  _vCard_entry or None
+    """
     if re.match(LANG_TAG, value) is None:
         raise VCardValidationError("Language Tag isn't match", property)
 
 
 def validate_boolean(value, property=None):
+    """
+    Validates boolean type value. Property if not None will be saved in exception
+
+    :param      value:     The value
+    :type       value:     str
+    :param      property:  The property
+    :type       property:  _vCard_entry or None
+    """
     if not (value.upper() == "TRUE" or value.upper() == "FALSE"):
         raise VCardValidationError("Boolean must be true or false", property)
 
 
 def validate_uri(value, property=None):
+    """
+    Validates uri type value. Property if not None will be saved in exception
+
+    :param      value:     The value
+    :type       value:     str
+    :param      property:  The property
+    :type       property:  _vCard_entry or None
+    """
     parsed = urlparse(value)
     if parsed[0] == '' or (parsed[1] == '' and parsed[2] == ''):
         raise VCardValidationError("URI is incorrect", property)
 
 
-def params_names_required(property, names, values={}):
-    for i in property.params:
-        if len(values) != 0:
-            for value in values:
-                if i in values:
-                    if value.lower() not in values[i]:
-                        raise VCardValidationError("Value is unknown", property)
-        if i.lower() not in names:
-            raise VCardValidationError("Param name is unknown")
-
-
 def validate_parameter(property):
+    """
+    Validates parameters in property
+    
+    :param      property:  The property
+    :type       property:  _vCard_entry
+    """
     for param in property.params:
         if param == "LANGUAGE":
             validate_language_tag(property.params[param], property)
@@ -184,6 +303,14 @@ def validate_parameter(property):
 
 
 def validate_property(property, version):
+    """
+    Validates the property (values and parameters)
+    
+    :param      property:  The property
+    :type       property:  _vCard_entry
+    :param      version:   The version
+    :type       version:   str
+    """
     validate_parameter(property)
     if property.name == "PROFILE":
         if property.values[0].lower() != "vcard":

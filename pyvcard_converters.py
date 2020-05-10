@@ -9,6 +9,14 @@ import base64
 
 
 def encoding_convert(source, params):
+    """
+    Encodes the property
+
+    :param      source:  The source
+    :type       source:  str
+    :param      params:  The parameters
+    :type       params:  str
+    """
     if "ENCODING" in params:
         enc = params["ENCODING"].upper()
     else:
@@ -26,6 +34,12 @@ def encoding_convert(source, params):
 
 
 def determine_type(prop):
+    """
+    Determines the type by property.
+
+    :param      prop:  The property
+    :type       prop:  _vCard
+    """
     if "VALUE" in prop.params:
         return prop.params["VALUE"]
     else:
@@ -55,6 +69,14 @@ def determine_type(prop):
 
 
 def recognize_param_type(param, value):
+    """
+    Recognize parameter type by name (uses RFC6350)
+
+    :param      param:  The parameter name
+    :type       param:  str
+    :param      value:  The value
+    :type       value:  str
+    """
     if param == "LANGUAGE":
         return "language-tag"
     elif param == "PREF":
@@ -81,6 +103,10 @@ def recognize_param_type(param, value):
 
 
 class csv_Converter:
+    """
+    This class describes a vCard object to CSV converter.
+    """
+
     def __init__(self, obj):
         if pyvcard.is_vcard(obj) or isinstance(obj, pyvcard.vCardSet):
             self._object = obj
@@ -92,6 +118,9 @@ class csv_Converter:
         return self._object
 
     def write_vcard(self, vcard, writer, permanent=False):
+        """
+        Writes a vCard. Utility method
+        """
         data = vcard.contact_data()
         row = {
             "Formatted name": data["name"],
@@ -103,6 +132,9 @@ class csv_Converter:
         writer.writerow(row)
 
     def result(self):
+        """
+        Returns string result of converting
+        """
         strio = io.StringIO()
         names = ["Formatted name", "Name", "Tel. Number", "vCard"]
         writer = DictWriter(strio, fieldnames=names)
@@ -117,6 +149,10 @@ class csv_Converter:
         return val
 
     def permanent_result(self):
+        """
+        Returns string result of converting.
+        This operation is irreversible. Parsing this csv will be impossible
+        """
         strio = io.StringIO()
         names = ["Formatted name", "Name", "Tel. Number"]
         writer = DictWriter(strio, fieldnames=names)
@@ -132,6 +168,11 @@ class csv_Converter:
 
 
 class jCard_Converter:
+    """
+    This class describes a vCard object to JSON converter
+    jCard (RFC 7095)
+    """
+
     def __init__(self, obj):
         self._object = obj
 
@@ -140,6 +181,9 @@ class jCard_Converter:
         return self._object
 
     def write_vcard(self, vcard, array):
+        """
+        Writes a vCard. Utility method
+        """
         jcard = ["vcard", []]
         properties = jcard[1]
         for prop in vcard:
@@ -178,6 +222,9 @@ class jCard_Converter:
         array.append(jcard)
 
     def result(self, return_obj=False, *args, **kwargs):
+        """
+        Returns string result of converting
+        """
         vcards = []
         if isinstance(self._object, pyvcard.vCardSet):
             for vcard in self._object:
@@ -191,6 +238,10 @@ class jCard_Converter:
 
 
 class xCard_Converter:
+    """
+    This class describes a vCard object to XML converter
+    xCard (RFC 6351)
+    """
     HEADER = "urn:ietf:params:xml:ns:vcard-4.0"
 
     def __init__(self, obj):
@@ -201,6 +252,9 @@ class xCard_Converter:
         return self._object
 
     def parse_vcard(self, vcardobj, root):
+        """
+        Writes a vCard. Utility method
+        """
         vcard = et.SubElement(root, "vcard")
         group_name = None
         for vcard_attr in vcardobj:
@@ -242,6 +296,10 @@ class xCard_Converter:
         return vcard
 
     def value_struct(self, attr, vcard_attr, value_param):
+        """
+        Utility method. Don't recommend for use in outer code!
+        Converts values
+        """
         if vcard_attr.name == "N":
             value_node = et.SubElement(attr, "surname")
             value_node.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
@@ -279,6 +337,9 @@ class xCard_Converter:
                 value.text = encoding_convert(pyvcard.unescape(vcard_attr.values[0]), vcard_attr.params)
 
     def result(self):
+        """
+        Returns string result of converting
+        """
         root = et.Element("vcards", xmlns=self.HEADER)
         if hasattr(self.object, "__iter__"):
             for vcardobj in self.object:
