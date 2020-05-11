@@ -4,6 +4,7 @@ setup(name='pyvcard',
       version='1.0a.dev1',
       description='Powerful vCard parser',
       long_description=open("README.rst").read(),
+      long_description_content_type='text/markdown',
       classifiers=[
           'Development Status :: 3 - Alpha',
           'Programming Language :: Python :: 3',

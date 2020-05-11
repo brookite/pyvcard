@@ -1204,6 +1204,12 @@ class _vCard:
                         r.append(self)
             return r
 
+    def repr(self):
+        """
+        Returns a string representation of vCard
+        """
+        return self.repr_vcard()
+
     def find_by_phone_startswith(self, number, parsestr=True, indexsearch=True):
         """
         Finds a by starts of a phone.
@@ -1838,5 +1844,3 @@ def parse_name_property(prop):
         result["prefix"] = prop[3]
         result["suffix"] = prop[4]
     return result
-
-
