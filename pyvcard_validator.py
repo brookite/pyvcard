@@ -52,7 +52,7 @@ VALUE_TYPE = [
 def validate_bool_wrapper(validator_func, *args, **kwargs):
     """
     Returns boolean value of validator function instead exception
-    
+
     :param      validator_func:  The validator function
     :type       validator_func:  function
     :param      args:            The arguments of validator function
@@ -166,7 +166,7 @@ def validate_text_list(value, property=None):
 def validate_datetime(value, subtype, property=None):
     """
     Validates date and time values. Property if not None will be saved in exception 
-    
+
     :param      value:     The value
     :type       value:     str
     :param      subtype:   The subtype of date or time ("datetime", "time", "date")

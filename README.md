@@ -114,4 +114,6 @@ __Python 3.6+ recommended. WARNING: pyvcard is in early alpha. It may be unstabl
 
 * hCard (HTML)
 
+* Version migration function
+
 * Property values types structures

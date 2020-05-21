@@ -843,7 +843,7 @@ def _parse_lines(strings, indexer=None):
     is_version = False
     buf = []
     for string in strings:
-        parsed = _parse_line(string, version)
+        parsed = _parse_line(string.rstrip(), version)
         if parsed == _STATE.BEGIN:
             vcard = _vCard()
             if card_opened:
@@ -1309,7 +1309,7 @@ class vCardSet(set):
         :param      vcard:  The vCard
         :type       vcard:  _vCard
         """
-        if isinstance(vcard, _VCard):
+        if is_vcard(vcard):
             super().add(vcard)
 
     def setindex(self, indexer):
