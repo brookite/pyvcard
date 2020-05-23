@@ -165,7 +165,7 @@ def validate_text_list(value, property=None):
 
 def validate_datetime(value, subtype, property=None):
     """
-    Validates date and time values. Property if not None will be saved in exception 
+    Validates date and time values. Property if not None will be saved in exception
 
     :param      value:     The value
     :type       value:     str
@@ -180,11 +180,19 @@ def validate_datetime(value, subtype, property=None):
         pattern = VALID_TIME
     elif subtype == "date":
         pattern = VALID_DATE
+    elif subtype == "date-and-or-time":
+        if value.startswith("T"):
+            pattern = VALID_TIME
+        else:
+            pattern = VALID_DATETIME
     elif subtype is None:
-        if not any(re.match(VAILD_TIMESTAMP, value), re.match(VALID_DATE, value),
-                   re.match(VALID_TIME, value)
-                   ):
-            raise VCardValidationError("Date or time isn't match", property)
+        if value.startswith("T"):
+            pattern = VALID_TIME
+        else:
+            if not any(re.match(VAILD_TIMESTAMP, value), re.match(VALID_DATE, value),
+                       re.match(VALID_TIME, value), re.match(VALID_DATETIME, value)
+                       ):
+                raise VCardValidationError("Date or time isn't match", property)
     else:
         raise ValueError("Incorrect subtype", property)
     if not re.match(pattern, value):
@@ -273,7 +281,7 @@ def validate_uri(value, property=None):
 def validate_parameter(property):
     """
     Validates parameters in property
-    
+
     :param      property:  The property
     :type       property:  _vCard_entry
     """
@@ -305,7 +313,7 @@ def validate_parameter(property):
 def validate_property(property, version):
     """
     Validates the property (values and parameters)
-    
+
     :param      property:  The property
     :type       property:  _vCard_entry
     :param      version:   The version

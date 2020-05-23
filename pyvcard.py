@@ -8,6 +8,7 @@ from pyvcard_exceptions import *
 from pyvcard_validator import *
 from pyvcard_converters import *
 from pyvcard_parsers import *
+from pyvcard_types import *
 
 validate_vcards = True
 line_warning = True
@@ -1045,6 +1046,10 @@ class _vCard:
             string += i.repr_vcard(encode)
         string += "\nEND:VCARD"
         return string
+
+    @property
+    def typedvalue(self):
+        return define_type(self)
 
     def __len__(self):
         return len(self._attrs)
