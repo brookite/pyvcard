@@ -22,3 +22,10 @@ class VCardValidationError(Exception):
     def __init__(self, msg, property=None):
         super().__init__(msg)
         self.property = property
+
+
+class LibraryNotFoundError(Exception):
+    def __init__(self, *libraries):
+        lib = ", ".join(libraries)
+        super().__init__(f"One or more libraries wasn't found ({lib}). Please install this")
+        self.property = property

@@ -102,7 +102,16 @@ def recognize_param_type(param, value):
         return "unknown"
 
 
-class csv_Converter:
+class AbstractConverter:
+    def result(self):
+        pass
+
+    @property
+    def object(self):
+        return self._object
+
+
+class csv_Converter(AbstractConverter):
     """
     This class describes a vCard object to CSV converter.
     """
@@ -112,10 +121,6 @@ class csv_Converter:
             self._object = obj
         else:
             raise ValueError("Required vCardSet or vCard type")
-
-    @property
-    def object(self):
-        return self._object
 
     def write_vcard(self, vcard, writer, permanent=False):
         """
@@ -167,7 +172,7 @@ class csv_Converter:
         return val
 
 
-class jCard_Converter:
+class jCard_Converter(AbstractConverter):
     """
     This class describes a vCard object to JSON converter
     jCard (RFC 7095)
@@ -175,10 +180,6 @@ class jCard_Converter:
 
     def __init__(self, obj):
         self._object = obj
-
-    @property
-    def object(self):
-        return self._object
 
     def write_vcard(self, vcard, array):
         """
@@ -237,7 +238,7 @@ class jCard_Converter:
             return json.dumps(vcards, ensure_ascii=False, *args, **kwargs)
 
 
-class xCard_Converter:
+class xCard_Converter(AbstractConverter):
     """
     This class describes a vCard object to XML converter
     xCard (RFC 6351)
@@ -246,10 +247,6 @@ class xCard_Converter:
 
     def __init__(self, obj):
         self._object = obj
-
-    @property
-    def object(self):
-        return self._object
 
     def parse_vcard(self, vcardobj, root):
         """

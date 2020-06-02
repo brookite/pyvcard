@@ -24,7 +24,12 @@ def get_string(obj):
         raise ValueError("Required specific object string or file descriptor")
 
 
-class xCard_Parser:
+class AbstractParser:
+    def vcards(self):
+        pass
+
+
+class xCard_Parser(AbstractParser):
     """
     This class describes a XML to vCard object parser
     xCard (RFC 6351)
@@ -132,7 +137,7 @@ class xCard_Parser:
         return pyvcard.vCardSet(vcards)
 
 
-class csv_Parser:
+class csv_Parser(AbstractParser):
     """
     This class describes a CSV to vCard object parser
     """
@@ -157,7 +162,7 @@ class csv_Parser:
         return pyvcard.parse(s, self.indexer).vcards()
 
 
-class jCard_Parser:
+class jCard_Parser(AbstractParser):
     """
     This class describes a JSON to vCard object parser
     jCard (RFC 7095)

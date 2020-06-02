@@ -1664,7 +1664,7 @@ class _vCard_Builder:
             value = list(map(func, value))
         else:
             value = [str(value)]
-        entry = _vCard_entry(name, value, params, group, version=self._version, encoded=encoding_raw)
+        entry = _vCard_entry(name.upper(), value, params, group, version=self._version, encoded=encoding_raw)
         self._properties.append(entry)
 
     def set_phone(self, number):
