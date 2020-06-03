@@ -1633,6 +1633,7 @@ class _vCard_Builder:
         self.indexer = indexer
         self._properties = []
         self._version = version
+        self.set_version(version)
 
     def add_property(self, name, value, params={}, group=None, encoding_raw=False):
         """
