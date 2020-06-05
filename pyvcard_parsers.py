@@ -197,11 +197,11 @@ class jCard_Parser(AbstractParser):
                     group = params["group"]
                 else:
                     if isinstance(params[param], str):
-                        newparams[param.upper()] = params[param]
+                        newparams[param.upper()] = params[param].lower()
                     elif params[param] is not None:
-                        newparams[param.upper()] = ",".join(params[param])
+                        newparams[param.upper()] = ",".join(params[param]).lower()
             if data[2] != "unknown":
-                newparams["VALUE"] = data[2]
+                newparams["VALUE"] = data[2].lower()
             if len(data[3:]) == 1:
                 if hasattr(data[3:][0], "__iter__") and not isinstance(data[3:][0], str):
                     value = data[3:][0]

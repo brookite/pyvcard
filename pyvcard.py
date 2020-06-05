@@ -9,6 +9,7 @@ from pyvcard_validator import *
 from pyvcard_converters import *
 from pyvcard_parsers import *
 from pyvcard_types import *
+from pyvcard_hcard import *
 
 validate_vcards = True
 line_warning = True
@@ -54,6 +55,7 @@ class SOURCES(enum.Enum):
     JSON = "json"
     VCF = "vcf"
     CSV = "csv"
+    HTML = "html"
 
 
 class vCardIndexer:
@@ -578,10 +580,10 @@ def decode_property(property):
         charset = property._params["CHARSET"].lower()
     if "ENCODING" in property._params:
         for i in range(len(property._values)):
-            if property._params["ENCODING"] == "QUOTED-PRINTABLE":
+            if property._params["ENCODING"].upper() == "QUOTED-PRINTABLE":
                 if property._values[i] != '':
                     property._values[i] = quoted_to_str(property._values[i], charset)
-            elif property._params["ENCODING"] in ["B", "BASE64"]:
+            elif property._params["ENCODING"].upper() in ["B", "BASE64"]:
                 if property._values[i] != '':
                     property._values[i] = base64_decode(property._values[i].encode(charset))
 
@@ -682,7 +684,7 @@ class _vCard_entry:
                         if "CHARSET" in self._params:
                             charset = self._params["CHARSET"]
                         values[i] = str_to_quoted(values[i], charset)
-            elif self._params["ENCODING"] in ["B", "BASE64"]:
+            elif self._params["ENCODING"].upper() in ["B", "BASE64"]:
                 for i in range(len(values)):
                     values[i] = base64_encode(values[i])
         else:
@@ -801,9 +803,9 @@ def _parse_line(string, version):
                 params_dict[param[0].upper()] = None
             else:
                 if param[0] in params_dict:
-                    params_dict[param[0].upper()] += "," + param[1].upper()
+                    params_dict[param[0].upper()] += "," + param[1].lower()
                 else:
-                    params_dict[param[0].upper()] = param[1].upper()
+                    params_dict[param[0].upper()] = param[1].lower()
         if version != "2.1":
             values = m2.group(9).split(";")
         else:
@@ -1605,6 +1607,12 @@ class _vCard_Converter:
         """
         return bytes(self._value)
 
+    def html(self):
+        """
+        Return a vCard converter object to HTML (hCard)
+        """
+        return hCardConverter(self.source)
+
     def csv(self):
         """
         Return a vCard converter object to CSV
@@ -1613,13 +1621,13 @@ class _vCard_Converter:
 
     def json(self):
         """
-        Return a vCard converter object to JSON
+        Return a vCard converter object to JSON (jCard)
         """
         return jCard_Converter(self.source)
 
     def xml(self):
         """
-        Return a vCard converter object to XML
+        Return a vCard converter object to XML (xCard)
         """
         return xCard_Converter(self.source)
 
@@ -1773,6 +1781,8 @@ def parse_from(source, type, indexer=None):
         return jCard_Parser(source, indexer)
     elif type == SOURCES.CSV or type == "csv":
         return csv_Parser(source, indexer)
+    elif type == SOURCES.HTML or type == "html":
+        return hCard_Parser(source, indexer)
     elif type == SOURCES.VCF:
         return parse(source, indexer)
     else:

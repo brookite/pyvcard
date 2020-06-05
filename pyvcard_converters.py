@@ -28,6 +28,8 @@ def encoding_convert(source, params):
         if enc == "QUOTED-PRINTABLE":
             return pyvcard.str_to_quoted(source)
         elif enc in ["BASE64", "B"]:
+            if isinstance(source, str):
+                source = source.encode("utf-8")
             return base64.b64encode(source).decode("utf-8")
         else:
             return source

@@ -416,11 +416,11 @@ def validate_property(property, version):
         if version == "4.0":
             validate_value_parameter(property, ["utc-offset", "uri"])
             values_count_required(property, 1, 1)
-            if property.params["VALUE"] == "text":
+            if property.params["VALUE"].lower() == "text":
                 validate_text(property.values[0], property)
-            elif property.params["VALUE"] == "utc-offset":
+            elif property.params["VALUE"].lower() == "utc-offset":
                 validate_utc_offset(property.values[0], property)
-            elif property.params["VALUE"] == "uri":
+            elif property.params["VALUE"].lower() == "uri":
                 validate_uri(property.values[0], property)
         else:
             values_count_required(property, 1, 1)
@@ -454,12 +454,12 @@ def validate_property(property, version):
             warnings.warn("Related property allowed only in version 4.0")
         validate_value_parameter(property, ["uri"], text_allowed=True)
         values_count_required(property, 1, 1)
-        if property.params["VALUE"] == "uri":
+        if property.params["VALUE"].lower() == "uri":
             validate_uri(property.values[0], property)
         else:
             validate_text(property.values[0], property)
         if "TYPE" in property.params:
-            if property.params["TYPE"] not in [
+            if property.params["TYPE"].lower() not in [
                 "contact", "acquaintance", "friend", "met",
                 "co-worker", "colleague", "co-resident",
                 "neighbor", "child", "parent",
@@ -486,12 +486,12 @@ def validate_property(property, version):
         validate_value_parameter(property, ["uri"], text_allowed=False)
         values_count_required(property, 1, 1)
         if "VALUE" in property.params:
-            if property.params["VALUE"] == "uri":
+            if property.params["VALUE"].lower() == "uri":
                 validate_uri(property.values[0])
     elif property.name in ["UID", "KEY"]:
         values_count_required(property, 1, 1)
         if "VALUE" in property.params:
-            if property.params["VALUE"] == "uri":
+            if property.params["VALUE"].lower() == "uri":
                 validate_uri(property.values[0])
             else:
                 validate_text(property.values[0])
@@ -506,7 +506,7 @@ def validate_property(property, version):
     elif property.name == "AGENT":
         values_count_required(property, 1, 1)
         if "VALUE" in property.params:
-            if property.params["VALUE"] == "uri":
+            if property.params["VALUE"].lower() == "uri":
                 validate_uri(property.values[0])
             else:
                 property.values[0] = property.values[0].decode('string_escape')
@@ -514,7 +514,7 @@ def validate_property(property, version):
         values_count_required(property, 1, 1)
         validate_value_parameter(property, ["uri"])
         if "VALUE" in property.params:
-            if property.params["VALUE"] == "uri":
+            if property.params["VALUE"].lower() == "uri":
                 validate_uri(property.values[0])
             else:
                 validate_text(property.values[0])
