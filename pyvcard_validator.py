@@ -19,7 +19,8 @@ TYPE_TEL = [
     'car',
     'isdn',
     'pcs',
-    'textphone'
+    'textphone',
+    'main'
 ]
 LABEL_TEL = [
     'dom',
@@ -40,7 +41,10 @@ TYPE_EMAIL = [
     'parcel',
     'home',
     'work',
-    'cell'
+    'cell',
+    'school',
+    'other',
+    'customtype'
 ]
 VALUE_TYPE = [
     "text", "uri", "date",
@@ -350,12 +354,9 @@ def validate_property(property, version):
     elif property.name in ["PHOTO", "LOGO"]:
         validate_value_parameter(property, ["uri"], text_allowed=False)
         values_count_required(property, 1, 1)
-        if "ENCODING" not in property.params and "VALUE" not in property.params:
-            raise VCardValidationError("Encoding not found in params", property)
-        else:
-            if "ENCODING" in property.params:
-                if property.params["ENCODING"].lower() not in ["b", "base64"]:
-                    raise VCardValidationError("Encoding must be 'b' or 'base64' ", property)
+        if "ENCODING" in property.params:
+            if property.params["ENCODING"].lower() not in ["b", "base64"]:
+                raise VCardValidationError("Encoding must be 'b' or 'base64' ", property)
     elif property.name in ["BDAY", "ANNIVERSARY", "DEATHDATE"]:
         validate_value_parameter(property, ["date-and-or-time"])
         values_count_required(property, 1, 1)

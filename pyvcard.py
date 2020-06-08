@@ -464,7 +464,11 @@ def quoted_to_str(string, encoding="utf-8"):
     :param      encoding:  The encoding, default is UTF-8
     :type       encoding:  str
     """
-    return quopri.decodestring(unescape(string)).decode(encoding)
+    try:
+        return quopri.decodestring(unescape(string)).decode(encoding)
+    except Exception as e:
+        warnings.warn("Quoted-Printable string wasn't decoded: %s" % str(e))
+        return string
 
 
 def str_to_quoted(string, encoding="utf-8"):
@@ -476,7 +480,11 @@ def str_to_quoted(string, encoding="utf-8"):
     :param      encoding:  The encoding, default is UTF-8
     :type       encoding:  str
     """
-    return escape(quopri.encodestring(string.encode("utf-8")).decode("ascii"))
+    try:
+        return escape(quopri.encodestring(string.encode("utf-8")).decode("ascii"))
+    except Exception as e:
+        warnings.warn("String wasn't encoded to Quoted-Printable: %s" % str(e))
+        return string
 
 
 def base64_encode(value):
@@ -500,7 +508,11 @@ def base64_decode(value):
 
     Retutns base64 decoded bytes
     """
-    return base64.b64decode(value)
+    try:
+        return base64.b64decode(value)
+    except Exception as e:
+        warnings.warn("Bytes wasn't decoded from Base64: %s" % str(e))
+        return bytes(value)
 
 
 def strinteger(string):
@@ -743,6 +755,10 @@ def _unfold_lines(strings):
     return lines
 
 
+def split_noescape(str, sep):
+    return re.split(r'(?<!\\)' + sep, str)
+
+
 def _fold_line(string, expect_quopri=False):
     """
     Utility method. Don't recommend for use in outer code
@@ -753,20 +769,27 @@ def _fold_line(string, expect_quopri=False):
         strings = []
         begin = 0
         length = 75
+        add_char = ''
         for i in range(cuts):
             if i == 1:
                 length = 74
             end = begin + length
             tmp = string[begin:end]
+            if i > 0:
+                tmp = add_char + tmp
             if expect_quopri:
                 while tmp[-1] != "=":
                     end -= 1
-                    tmp = string[begin:end]
+                    tmp = add_char + string[begin:end]
+                add_char = '='
+            else:
+                add_char = ' '
             strings.append(tmp)
             begin = end
         if len(string[begin:]) > 0:
-            strings.append(string[begin:])
-        return "\n ".join(strings)
+            tmp = add_char + string[begin:]
+            strings.append(tmp)
+        return "\n".join(strings)
     else:
         return string
 
@@ -807,10 +830,11 @@ def _parse_line(string, version):
                     params_dict[param[0].upper()] += "," + param[1].lower()
                 else:
                     params_dict[param[0].upper()] = param[1].lower()
+        # FIX ME PLEASE
         if version != "2.1":
-            values = m2.group(9).split(";")
+            values = split_noescape(m2.group(9), ";")
         else:
-            values = m2.group(11).split(";")
+            values = split_noescape(m2.group(11), ";")
         for i in range(len(values)):
             values[i] = unescape(values[i])
         group = m2.group(1) if m2.group(1) != "" else None
