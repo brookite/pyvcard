@@ -3,13 +3,19 @@ import re
 import warnings
 import quopri
 import base64
+import pyvcard_hcard
+import pyvcard_converters
+import pyvcard_parsers
+
+
 from pyvcard_regex import *
-from pyvcard_exceptions import *
-from pyvcard_validator import *
-from pyvcard_converters import *
-from pyvcard_parsers import *
+from pyvcard_exceptions import (
+    VCardFormatError,
+    VCardValidationError
+)
+from pyvcard_validator import validate_property
 from pyvcard_types import *
-from pyvcard_hcard import *
+
 
 validate_vcards = True
 line_warning = True
@@ -458,7 +464,7 @@ def quoted_to_str(string, encoding="utf-8"):
     :param      encoding:  The encoding, default is UTF-8
     :type       encoding:  str
     """
-    return quopri.decodestring(string).decode(encoding)
+    return quopri.decodestring(unescape(string)).decode(encoding)
 
 
 def str_to_quoted(string, encoding="utf-8"):
@@ -470,12 +476,7 @@ def str_to_quoted(string, encoding="utf-8"):
     :param      encoding:  The encoding, default is UTF-8
     :type       encoding:  str
     """
-    string = string.encode(encoding)
-    qp = ""
-    for i in string:
-        i = hex(i)[2:]
-        qp += "=" + str(i)
-    return qp.upper()
+    return escape(quopri.encodestring(string.encode("utf-8")).decode("ascii"))
 
 
 def base64_encode(value):
@@ -1611,25 +1612,25 @@ class _vCard_Converter:
         """
         Return a vCard converter object to HTML (hCard)
         """
-        return hCardConverter(self.source)
+        return pyvcard_hcard.hCard_Converter(self.source)
 
     def csv(self):
         """
         Return a vCard converter object to CSV
         """
-        return csv_Converter(self.source)
+        return pyvcard_converters.csv_Converter(self.source)
 
     def json(self):
         """
         Return a vCard converter object to JSON (jCard)
         """
-        return jCard_Converter(self.source)
+        return pyvcard_converters.jCard_Converter(self.source)
 
     def xml(self):
         """
         Return a vCard converter object to XML (xCard)
         """
-        return xCard_Converter(self.source)
+        return pyvcard_converters.xCard_Converter(self.source)
 
 
 class _vCard_Builder:
@@ -1776,13 +1777,13 @@ def parse_from(source, type, indexer=None):
     :type       indexer:  instance of vCardIndexer or None
     """
     if type == SOURCES.XML or type == "xml":
-        return xCard_Parser(source, indexer)
+        return pyvcard_parsers.xCard_Parser(source, indexer)
     elif type == SOURCES.JSON or type == "json":
-        return jCard_Parser(source, indexer)
+        return pyvcard_parsers.jCard_Parser(source, indexer)
     elif type == SOURCES.CSV or type == "csv":
-        return csv_Parser(source, indexer)
+        return pyvcard_parsers.csv_Parser(source, indexer)
     elif type == SOURCES.HTML or type == "html":
-        return hCard_Parser(source, indexer)
+        return pyvcard_hcard.hCard_Parser(source, indexer)
     elif type == SOURCES.VCF:
         return parse(source, indexer)
     else:

@@ -39,7 +39,8 @@ TYPE_EMAIL = [
     'postal',
     'parcel',
     'home',
-    'work'
+    'work',
+    'cell'
 ]
 VALUE_TYPE = [
     "text", "uri", "date",
@@ -374,7 +375,7 @@ def validate_property(property, version):
                 subvalues = property.params["TYPE"].split(",")
                 for subvalue in subvalues:
                     subvalue = subvalue.lower()
-                    if subvalue.lower() not in LABEL_TEL:
+                    if subvalue.lower() not in LABEL_TEL and not subvalue.lower().startswith("x-"):
                         raise VCardValidationError(f"ADR type {subvalue} is unknown")
     elif property.name == "LABEL":
         values_count_required(property, 1, 1)
@@ -383,14 +384,14 @@ def validate_property(property, version):
         if "TYPE" in property.params:
             subvalues = property.params["TYPE"].split(",")
             for subvalue in subvalues:
-                if subvalue.lower() not in TYPE_LABEL:
+                if subvalue.lower() not in LABEL_TEL and not subvalue.lower().startswith("x-"):
                     raise VCardValidationError(f"LABEL type {subvalue} is unknown")
     elif property.name == "TEL":
         validate_value_parameter(property, ["uri"])
         if "TYPE" in property.params:
             subvalues = property.params["TYPE"].split(",")
             for subvalue in subvalues:
-                if subvalue.lower() not in TYPE_TEL:
+                if subvalue.lower() not in TYPE_TEL and not subvalue.lower().startswith("x-"):
                     raise VCardValidationError(f"TEL type {subvalue} is unknown")
     elif property.name == "EMAIL":
         validate_value_parameter(property, [])
@@ -398,7 +399,7 @@ def validate_property(property, version):
         if "TYPE" in property.params:
             subvalues = property.params["TYPE"].split(",")
             for subvalue in subvalues:
-                if subvalue.lower() not in TYPE_EMAIL:
+                if subvalue.lower() not in TYPE_EMAIL and not subvalue.lower().startswith("x-"):
                     raise VCardValidationError(f"EMAIL type {subvalue} is unknown")
     elif property.name == "IMPP":
         validate_value_parameter(property, ["uri"])

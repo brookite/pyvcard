@@ -1,11 +1,11 @@
 import xml.etree.ElementTree as et
-import pyvcard
 from pyvcard_validator import validate_uri
 from xml.dom import minidom
 from csv import DictWriter
 import io
 import json
 import base64
+import pyvcard
 
 
 def encoding_convert(source, params):

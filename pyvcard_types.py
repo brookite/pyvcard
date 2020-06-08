@@ -1,16 +1,16 @@
 import pyvcard
 from pyvcard_regex import *
-from pyvcard_exceptions import *
+from pyvcard_exceptions import VCardValidationError
 from urllib.parse import urlparse
 import datetime
-from pyvcard_converters import determine_type
+import pyvcard_converters
 
 
 def define_type(property):
     if property.name == "N":
         return NameType(property.values)
     else:
-        type_val = determine_type(property)
+        type_val = pyvcard_converters.determine_type(property)
         if type_val == "uri":
             return URI(property.values)
         elif type_val == "text":

@@ -1,6 +1,6 @@
 from pyvcard_exceptions import LibraryNotFoundError
-from pyvcard_converters import AbstractConverter
-from pyvcard_parsers import AbstractParser
+import pyvcard_parsers
+import pyvcard_converters
 import pyvcard
 
 try:
@@ -24,7 +24,7 @@ SUPPORTED_TAGS = set([
 ])
 
 
-class hCardParser(AbstractParser):
+class hCard_Parser(pyvcard_parsers.AbstractParser):
     def __init__(self, html, indexer):
         _check_lib()
         self._parser = bs(html, "html.parser")
@@ -133,17 +133,17 @@ class hCardParser(AbstractParser):
 
     def vcards(self):
         self.vcards = []
-        self.builder = pyvcard.build(indexer=self.indexer)
+        self.builder = pyvcard.builder(indexer=self.indexer)
         self._hcards = self._parser.select(".vcard")
         for hcard in self._hcards:
             for tag in SUPPORTED_TAGS:
                 self._preprocess_tag(tag, hcard)
             self.vcards.append(self.builder.build())
-            self.builder = pyvcard.build(indexer=self.indexer)
+            self.builder = pyvcard.builder(indexer=self.indexer)
         return pyvcard.vCardSet(self.vcards)
 
 
-class hCardConverter(AbstractConverter):
+class hCard_Converter(pyvcard_converters.AbstractConverter):
     def __init__(self, vcard):
         _check_lib()
         self._vcard = vcard
