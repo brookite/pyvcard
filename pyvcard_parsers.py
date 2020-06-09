@@ -44,7 +44,7 @@ class xCard_Parser(AbstractParser):
             "language-tag", "uri", "text", "integer",
             "unknown", "vcards", "vcard", "parameters",
             "date", "time", "date-time", "date-and-or-time",
-            "timestamp", "boolean", "float", "utc-offset"
+            "timestamp", "boolean", "float", "utc-offset", "sex"
         ]
 
     def _tag_name(self, tag):

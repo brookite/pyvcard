@@ -531,10 +531,13 @@ def strinteger(string):
             n += i
     if string[0] == "-":
         n = "-" + n
-    return int(n) if "." not in n else float(n)
+    try:
+        return int(n) if "." not in n else float(n)
+    except Exception:
+        return 0
 
 
-def escape(string, characters=[";", ",", "\n", "\r"]):
+def escape(string, characters=[";", ",", "\n", "\r", ":"]):
     """
     Escapes listed characters with a character \\
 
@@ -740,16 +743,27 @@ def _unfold_lines(strings):
     lines = []
     for string in strings:
         string.replace("\n", "")
+        if string == "":
+            continue
         if len(string) > 75 and line_warning:
             warnings.warn("Long line found in current VCard (length > 75)")
         if string.startswith(" ") or string.startswith("\t"):
             if len(lines) == 0:
                 raise VCardFormatError("Illegal whitespace at string 1")
-            lines[-1] += string[1:]
+            lines[-1] += string[1:].lstrip()
         elif string.startswith("="):
+            if len(lines) == 0:
+                raise VCardFormatError("Illegal whitespace at string 1")
             lines[-1] += string[1:]
         elif string.startswith(";"):
+            if len(lines) == 0:
+                raise VCardFormatError("Illegal whitespace at string 1")
             lines[-1] += string
+        elif len(lines) > 0:
+            if lines[-1].endswith("=0D=0A="):
+                lines[-1] += string
+            else:
+                lines.append(string)
         else:
             lines.append(string)
     return lines
@@ -802,7 +816,7 @@ def _parse_line(string, version):
     m1 = re.match(VCARD_BORDERS, string)
     if m1:
         return _STATE.BEGIN if m1.group(3) == "BEGIN" else _STATE.END
-    if version != "2.1":
+    if version == "4.0":
         m2 = re.match(CONTENTLINE, string)
     else:
         m2 = re.match(CONTENTLINE_21, string)
@@ -810,7 +824,7 @@ def _parse_line(string, version):
         name = m2.group(3)
         if name in ["BEGIN", "END"]:
             return None
-        if version != "2.1":
+        if version == "4.0":
             if m2.group(4):
                 params = re.findall(PARAM, m2.group(4))
             else:
@@ -829,9 +843,8 @@ def _parse_line(string, version):
                 if param[0] in params_dict:
                     params_dict[param[0].upper()] += "," + param[1].lower()
                 else:
-                    params_dict[param[0].upper()] = param[1].lower()
-        # FIX ME PLEASE
-        if version != "2.1":
+                    params_dict[param[0].upper()] = param[1].lower().replace('"', '')
+        if version == "4.0":
             values = split_noescape(m2.group(9), ";")
         else:
             values = split_noescape(m2.group(11), ";")

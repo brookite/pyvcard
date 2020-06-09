@@ -123,7 +123,7 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
                     elif childs[0].name == "object":
                         values = childs[0]["data"]
                     else:
-                        values = childs[0].string.split(";")
+                        values = pyvcard.split_noescape(childs[0].string, ";")
             elif len(self._is_type_and_value(childs)) > 0:
                 values = self._is_type_and_value(childs)
             else:

@@ -49,15 +49,14 @@ def determine_type(prop):
             "N", "FN", "XML", "KIND", "GENDER",
             "TZ", "TITLE", "ROLE", "TEL", "EMAIL",
             "ORG", "CATEGORIES", "NOTES", "PRODID",
-            "EXPERTISE", "HOBBY", "INTEREST", "ORG-DIRECTORY",
+            "EXPERTISE", "HOBBY", "UID", "INTEREST", "ORG-DIRECTORY",
             "BIRTHPLACE", "DEATHPLACE", "VERSION", "ADR"
         ]:
             return "text"
         elif prop.name in [
             "SOURCE", "IMPP", "GEO", "LOGO",
             "MEMBER", "RELATED", "SOUND",
-            "UID", "URI", "KEY", "FBURL",
-            "CALADRURI", "CALURI"
+            "URI", "FBURL", "CALADRURI", "CALURI"
         ]:
             return "uri"
         elif prop.name in ["BDAY", "ANNIVERSARY", "DEATHDATE"]:
