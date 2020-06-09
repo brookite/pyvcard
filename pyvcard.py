@@ -481,7 +481,8 @@ def str_to_quoted(string, encoding="utf-8"):
     :type       encoding:  str
     """
     try:
-        return escape(quopri.encodestring(string.encode("utf-8")).decode("ascii"))
+        string = quopri.encodestring(string.encode("utf-8")).decode("ascii")
+        return string.replace("\r", "=0D").replace("\n", "=0A").replace("==", "=")
     except Exception as e:
         warnings.warn("String wasn't encoded to Quoted-Printable: %s" % str(e))
         return string
@@ -821,7 +822,7 @@ def _parse_line(string, version):
     else:
         m2 = re.match(CONTENTLINE_21, string)
     if m2:
-        name = m2.group(3)
+        name = m2.group(3).upper()
         if name in ["BEGIN", "END"]:
             return None
         if version == "4.0":
@@ -888,7 +889,7 @@ def _parse_lines(strings, indexer=None):
         if parsed == _STATE.BEGIN:
             vcard = _vCard()
             if card_opened:
-                raise VCardFormatError(f"vCard didn't closed at line {i}")
+                raise VCardFormatError(f"Object didn't closed at line {i}")
             card_opened = True
             buf = []
         elif parsed == _STATE.END:
@@ -911,7 +912,7 @@ def _parse_lines(strings, indexer=None):
                 indexer.index(entry, vcard)
             buf.append(entry)
     if card_opened:
-        raise VCardFormatError(f"vCard didn't closed at line {i}")
+        raise VCardFormatError(f"Object didn't closed at line {i}")
     return args
 
 
