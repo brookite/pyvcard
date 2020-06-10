@@ -446,7 +446,11 @@ def validate_property(property, version):
         values_count_required(property, 1, 1)
     elif property.name in ["NOTE", "PRODID"]:
         validate_value_parameter(property, [])
-        values_count_required(property, 1, 1)
+        if len(property.values) > 1 and version == "2.1":
+            value = ";".join(property.values)
+            property._values = [value]
+        else:
+            values_count_required(property, 1, 1)
     elif property.name == "REV":
         if version == "4.0":
             validate_value_parameter(property, ["timestamp"], text_allowed=False)

@@ -180,6 +180,15 @@ class vcardtest(unittest.TestCase):
         self.assertEqual(pyvcard.is_vcard_property(list(bundle)[0], False))
         self.assertEqual(pyvcard.strinteger("12345-122345"), 12345122345)
 
+    def html_test(self):
+        pass
+
+    def type_test(self):
+        pass
+
+    def migrate_test(self):
+        pass
+
 
 if __name__ == "__main__":
     unittest.main()
