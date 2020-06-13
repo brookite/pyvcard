@@ -24,6 +24,22 @@ SUPPORTED_TAGS = set([
 ])
 
 
+def _has_class(tag, *tags):
+    if "class" not in tag.attrs:
+        return False
+    if len(tag["class"]) == 0:
+        return False
+    else:
+        lst = list(filter(lambda x: x in SUPPORTED_TAGS, tag["class"]))
+        if len(lst) > 0:
+            for t in lst:
+                if t in tags:
+                    return True
+            return False
+        else:
+            return False
+
+
 class hCard_Parser(pyvcard_parsers.AbstractParser):
     def __init__(self, html, indexer):
         _check_lib()
@@ -40,44 +56,44 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
         return value
 
     def _struct_types_parse(self, prop, childs):
-        if prop["class"] == "n":
+        if _has_class(prop, "n"):
             n_arr = ["" for i in range(5)]
             for child in childs:
-                if child["class"] == "family-name":
+                if _has_class(child, "family-name"):
                     n_arr[0] += child.string
-                if child["class"] == "given-name":
+                if _has_class(child) == "given-name":
                     n_arr[1] += child.string
-                if child["class"] == "additional-name":
+                if _has_class(child) == "additional-name":
                     n_arr[2] += child.string
-                if child["class"] == "honorific-prefix":
+                if _has_class(child) == "honorific-prefix":
                     n_arr[3] += child.string
-                if child["class"] == "honorific-suffix":
+                if _has_class(child) == "honorific-suffix":
                     n_arr[4] += child.string
             return n_arr
-        elif prop["class"] == "adr":
+        elif _has_class(prop, "adr"):
             adr_arr = ["" for i in range(7)]
             for child in childs:
-                if child["class"] == "post-office-box":
+                if _has_class(child, "post-office-box"):
                     adr_arr[0] += child.string
-                if child["class"] == "extended-address":
+                if _has_class(child, "extended-address"):
                     adr_arr[1] += child.string
-                if child["class"] == "street-address":
+                if _has_class(child, "street-address"):
                     adr_arr[2] += child.string
-                if child["class"] == "locality":
+                if _has_class(child, "locality"):
                     adr_arr[3] += child.string
-                if child["class"] == "region":
+                if _has_class(child, "region"):
                     adr_arr[4] += child.string
-                if child["class"] == "postal-code":
+                if _has_class(child, "postal-code"):
                     adr_arr[5] += child.string
-                if child["class"] == "country-name":
+                if _has_class(child, "country-name"):
                     adr_arr[6] += child.string
             return adr_arr
-        elif prop["class"] == "geo":
+        elif _has_class(prop, "geo"):
             geo_arr = ["" for i in range(2)]
             for child in childs:
-                if child["class"] == "latitude":
+                if _has_class(child, "latitude"):
                     geo_arr[0] += child.string
-                if child["class"] == "longitude":
+                if _has_class(child, "longitude"):
                     geo_arr[1] += child.string
             return geo_arr
         else:
@@ -110,7 +126,7 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
                             values = [childs[0].string]
                     elif childs[0].name == "data":
                         if "value" in childs[0].attrs:
-                            values = [childs[0]["value"]]
+                            values = childs[0]["value"].split(";")
                         else:
                             values = [childs[0].string]
                     elif childs[0].name == "time":
@@ -119,27 +135,55 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
                         else:
                             values = [childs[0].string]
                     elif childs[0].name == "img":
-                        values = childs[0]["src"]
+                        if "src" in childs[0].attrs:
+                            values = childs[0]["src"]
+                        elif "data" in childs[0].attrs:
+                            values = childs[0]["data"]
                     elif childs[0].name == "object":
                         values = childs[0]["data"]
                     else:
                         values = pyvcard.split_noescape(childs[0].string, ";")
+            elif len(childs) == 0:
+                if prop.name == "abbr":
+                    if "title" in prop.attrs:
+                        values = [prop["title"]]
+                    else:
+                        values = [prop.string]
+                elif prop.name == "data":
+                    if "value" in prop.attrs:
+                        values = prop["value"].split(";")
+                    else:
+                        values = [prop.string]
+                elif prop.name == "time":
+                    if "datetime" in prop.attrs:
+                        values = [prop["datetime"]]
+                    else:
+                        values = [prop.string]
+                elif prop.name == "img":
+                    if "src" in prop.attrs:
+                        values = prop["src"]
+                    elif "data" in prop.attrs:
+                        values = prop["data"]
+                    else:
+                        values = []
+                elif prop.name == "object":
+                    values = prop["data"]
             elif len(self._is_type_and_value(childs)) > 0:
                 values = self._is_type_and_value(childs)
             else:
-                if prop["class"] in ["adr", "n", "geo"]:
+                if _has_class(prop, "adr", "n", "geo", "org"):
                     values = self._struct_types_parse(prop, childs)
             self.builder.add_property(tagname, values, params)
 
     def vcards(self):
         self.vcards = []
-        self.builder = pyvcard.builder(indexer=self.indexer)
+        self.builder = pyvcard.builder(indexer=self.indexer, version="3.0")
         self._hcards = self._parser.select(".vcard")
         for hcard in self._hcards:
             for tag in SUPPORTED_TAGS:
                 self._preprocess_tag(tag, hcard)
             self.vcards.append(self.builder.build())
-            self.builder = pyvcard.builder(indexer=self.indexer)
+            self.builder = pyvcard.builder(indexer=self.indexer, version="3.0")
         return pyvcard.vCardSet(self.vcards)
 
 
@@ -147,25 +191,18 @@ class hCard_Converter(pyvcard_converters.AbstractConverter):
     def __init__(self, vcard):
         _check_lib()
         self._vcard = vcard
+        if pyvcard.is_vcard(self._vcard):
+            self._vcard = pyvcard.vCardSet([self._vcard])
 
     def _add_span_tag(self, prop):
-        tag = self.soup.new_tag("span", attrs={"class": property.name.lower()})
+        tag = self.soup.new_tag("span", attrs={"class": prop.name.lower()})
         self._setvalue(prop, tag)
         self.root.append(tag)
 
     def _setvalue(self, property, tag):
-        if "TYPE" in property.params:
-            typetag = self.soup.new_tag("span", attrs={"class": "type"})
-            if property.name.lower() == "tel":
-                valuetag = self.soup.new_tag("a", attrs={"class": "value"})
-                valuetag["href"] = "tel:" + property.value
-            else:
-                valuetag = self.soup.new_tag("span", attrs={"class": "value"})
-            typetag.string = property.params["TYPE"]
-            valuetag.string = ";".join(property.values)
-            tag.append(typetag)
-            tag.append(valuetag)
-        if tag.name == "img":
+        if _has_class(tag, "adr", "n", "geo", "org"):
+            self._setvalue_struct_type(property, tag)
+        elif tag.name == "img":
             if "ENCODING" in property.params:
                 tag["data"] = property.value
             else:
@@ -173,13 +210,30 @@ class hCard_Converter(pyvcard_converters.AbstractConverter):
         elif tag.name == "a":
             tag["href"] = property.value if property.name.lower() != "email" else "mailto:" + property.value
             tag.string = property.value
-        elif tag.name in ["adr", "n", "geo"]:
-            self._setvalue_struct_type(property, tag)
+        elif "TYPE" in property.params:
+            typetag = self.soup.new_tag("span", attrs={"class": "type"})
+            if property.name.lower() == "tel":
+                valuetag = self.soup.new_tag("a", attrs={"class": "value"})
+                valuetag["href"] = "tel:" + property.value
+            else:
+                valuetag = self.soup.new_tag("span", attrs={"class": "value"})
+            typetag.string = property.params["TYPE"]
+            values = []
+            for value in property.values:
+                if isinstance(value, bytes):
+                    value = pyvcard.base64_encode(value)
+                values.append(value)
+            valuetag.string = ";".join(values)
+            tag.append(typetag)
+            tag.append(valuetag)
         else:
-            tag.string = property.value
+            if isinstance(property.value, bytes):
+                tag.string = pyvcard.base64_encode(property.value)
+            else:
+                tag.string = ";".join(property.values)
 
     def _setvalue_struct_type(self, property, tag):
-        if tag.name == "adr":
+        if _has_class(tag, "adr"):
             postoffice = self.soup.new_tag("span", attrs={"class": "post-office-box"})
             postoffice.string = property.values[0]
             ea = self.soup.new_tag("span", attrs={"class": "extended-address"})
@@ -201,7 +255,7 @@ class hCard_Converter(pyvcard_converters.AbstractConverter):
             tag.append(reg)
             tag.append(postal)
             tag.append(country)
-        elif tag.name == "n":
+        elif _has_class(tag, "n"):
             fn = self.soup.new_tag("span", attrs={"class": "family-name"})
             fn.string = property.values[0]
             gn = self.soup.new_tag("span", attrs={"class": "given-name"})
@@ -217,54 +271,69 @@ class hCard_Converter(pyvcard_converters.AbstractConverter):
             tag.append(an)
             tag.append(hp)
             tag.append(hs)
-        elif tag.name == "geo":
-            tag["title"] = ";".join(property.values)
+        elif _has_class(tag, "geo"):
+            value = property.values
+            if len(value) == 1:
+                value = value[0].replace("geo:", "").split(",")
+            lat = self.soup.new_tag("span", attrs={"class": "latitude"})
+            lat.string = value[0]
+            long = self.soup.new_tag("span", attrs={"class": "longitude"})
+            long.string = value[1]
+            tag.append(lat)
+            tag.append(long)
+        elif _has_class(tag, "org"):
+            on = self.soup.new_tag("span", attrs={"class": "organization-name"})
+            on.string = property.values[0]
+            if len(property.values) > 1:
+                ou = self.soup.new_tag("span", attrs={"class": "organization-unit"})
+                ou.string = property.values[1]
+            tag.append(on)
+            if len(property.values) > 1:
+                tag.append(ou)
 
     def _add_link_tag(self, prop):
-        tag = self.soup.new_tag("a", attrs={"class": property.name.lower()})
+        tag = self.soup.new_tag("a", attrs={"class": prop.name.lower()})
         self._setvalue(prop, tag)
         self.root.append(tag)
 
     def _add_img_tag(self, prop):
-        tag = self.soup.new_tag("img", attrs={"class": property.name.lower()})
+        tag = self.soup.new_tag("img", attrs={"class": prop.name.lower()})
         self._setvalue(prop, tag)
         self.root.append(tag)
 
     def _add_abbr_tag(self, prop):
-        tag = self.soup.new_tag("abbr", attrs={"class": property.name.lower()})
+        tag = self.soup.new_tag("abbr", attrs={"class": prop.name.lower()})
         self._setvalue(prop, tag)
         self.root.append(tag)
 
     def _add_div_tag(self, prop):
-        tag = self.soup.new_tag("div", attrs={"class": property.name.lower()})
+        tag = self.soup.new_tag("div", attrs={"class": prop.name.lower()})
         self._setvalue(prop, tag)
         self.root.append(tag)
 
     def _add_time_tag(self, prop):
-        tag = self.soup.new_tag("time", attrs={"class": property.name.lower()})
+        tag = self.soup.new_tag("time", attrs={"class": prop.name.lower()})
         self._setvalue(prop, tag)
         self.root.append(tag)
 
     def result(self):
-        self.soup = bs()
-        self.root = self.soup.new_tag("div", attrs={"class": "vcard"})
-        for prop in self._vcard:
-            if prop.name in SUPPORTED_TAGS:
-                if prop.name in ["bday"]:
-                    self._add_time_tag(prop)
-                elif prop.name in ["logo", "photo"]:
-                    self._add_img_tag(prop)
-                elif prop.name in ["n", "adr"]:
-                    self._add_span_tag(prop)
-                elif prop.name in ["uri", "url", "email"]:
-                    self._add_link_tag(prop)
-                elif prop.name in ["geo"]:
-                    self._add_abbr_tag(prop)
-                else:
-                    self._add_div_tag(prop)
-
-        self.soup.append(self.root)
-        return self.root
+        self.soup = bs(features="html.parser")
+        for vcard in self._vcard:
+            self.root = self.soup.new_tag("div", attrs={"class": "vcard"})
+            for prop in vcard:
+                if prop.name.lower() in SUPPORTED_TAGS:
+                    if prop.name.lower() in ["bday"]:
+                        self._add_time_tag(prop)
+                    elif prop.name.lower() in ["logo", "photo"]:
+                        self._add_img_tag(prop)
+                    elif prop.name.lower() in ["n", "adr"]:
+                        self._add_span_tag(prop)
+                    elif prop.name.lower() in ["uri", "url", "email"]:
+                        self._add_link_tag(prop)
+                    else:
+                        self._add_div_tag(prop)
+            self.soup.append(self.root)
+        return self.soup
 
     def strresult(self):
         return str(self.result())

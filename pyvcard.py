@@ -192,7 +192,8 @@ def _unfold_lines(strings):
                 raise VCardFormatError("Illegal whitespace at string 1")
             lines[-1] += string
         elif len(lines) > 0:
-            if lines[-1].endswith("=0D=0A=") or lines[-1].endswith("="):
+            # or lines[-1].endswith("=")
+            if lines[-1].endswith("=0D=0A="):
                 lines[-1] += string
             else:
                 lines.append(string)
@@ -801,6 +802,10 @@ class _vCard_entry:
         return self._group
 
     @property
+    def typedvalue(self):
+        return define_type(self)
+
+    @property
     def values(self):
         return tuple(self._values)
 
@@ -888,6 +893,7 @@ def _parse_lines(strings, indexer=None):
     card_opened = False
     is_version = False
     buf = []
+    i = 1
     for string in strings:
         parsed = _parse_line(string.rstrip(), version)
         if parsed == _STATE.BEGIN:
@@ -915,6 +921,7 @@ def _parse_lines(strings, indexer=None):
                 indexer.setindex(vcard)
                 indexer.index(entry, vcard)
             buf.append(entry)
+        i += 1
     if card_opened:
         raise VCardFormatError(f"vCard didn't closed at line {i}")
     return args
@@ -1091,10 +1098,6 @@ class _vCard:
             string += i.repr_vcard(encode)
         string += "\nEND:VCARD"
         return string
-
-    @property
-    def typedvalue(self):
-        return define_type(self)
 
     def __len__(self):
         return len(self._attrs)
@@ -1988,7 +1991,51 @@ class VersionMigrator:
         return _vCard(args, version="4.0")
 
     def _3to2(self):
-        pass
+        args = []
+        args.append(_vCard_entry("VERSION", "2.0"))
+        for prop in self._vcard:
+            if prop.name in [
+                "VERSION", "CATEGORIES", "CLASS", "NICKNAME",
+                "PRODID", "SORT-STRING", "SOURCE", "NAME", "PROFILE"
+            ]:
+                continue
+            params = {}
+            for value in prop.values:
+                if not value.isascii():
+                    params["ENCODING"] = "quoted-printable"
+                    break
+            for param in prop.params:
+                if prop.params["param"] is None:
+                    types = prop.params["param"].split(",")
+                    for t in types:
+                        params[t] = None
+                params[param] = prop.params[param]
+            args.append(_vCard_entry(prop.name, prop.values, prop.params, prop.group, version="2.0"))
+        return _vCard(args, "2.0")
 
     def _4to3(self):
-        pass
+        args = []
+        args.append(_vCard_entry("VERSION", "4.0"))
+        for prop in self._vcard:
+            if prop.name in ["VERSION", "AGENT"]:
+                continue
+            values = []
+            params = prop.params
+            regex = r"data:{}\/(\w+);base64,"
+            for value in prop.values:
+                if prop.name in ["LOGO", "PHOTO"]:
+                    regex = regex.format("image")
+                    m = re.match(regex, value)
+                elif prop.name in ["SOUND"]:
+                    regex = regex.format("audio")
+                    m = re.match(regex, value)
+                elif prop.name in ["KEY"]:
+                    regex = regex.format("application")
+                    m = re.match(regex, value)
+                if m:
+                    value = base64_decode(re.sub(regex, value))
+                    params["ENCODING"] = "b"
+                    params["TYPE"] = m.group(1)
+                values.append(value)
+            args.append(_vard_entry(prop.name, values, params, prop.group))
+        return _vCard(args, version="4.0")

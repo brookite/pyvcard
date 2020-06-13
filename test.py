@@ -4,7 +4,7 @@ from traceback import print_exc
 import os
 from fuzzywuzzy import fuzz
 
-vcard_dir = "D:\\Мои файлы\\Рабочий стол\\vcards"
+vcard_dir = "./vcards/"
 test_path = "./tests/"
 
 bundle = pyvcard.vCardSet()
@@ -18,6 +18,7 @@ for i in os.listdir(vcard_dir):
         except pyvcard.VCardValidationError as e:
             print(pth, str(e))
         except Exception as e:
+            print_exc()
             print(pth, str(e))
 bundle.setindex(indexer)
 
@@ -173,20 +174,30 @@ class vcardtest(unittest.TestCase):
                 self.file.write(str(vcard.contact_data()) + "\n")
         self.file.close()
 
-    def util_test(self):
-        self.assertEqual(pyvcard.is_vcard(list(bundle)[0], True))
-        self.assertEqual(pyvcard.is_vcard_property(list(bundle)[0][0], True))
-        self.assertEqual(pyvcard.is_vcard([], False))
-        self.assertEqual(pyvcard.is_vcard_property(list(bundle)[0], False))
+    def test_util(self):
+        self.assertEqual(pyvcard.is_vcard(list(bundle)[0]), True)
+        self.assertEqual(pyvcard.is_vcard_property(list(bundle)[0][0]), True)
+        self.assertEqual(pyvcard.is_vcard([]), False)
+        self.assertEqual(pyvcard.is_vcard_property(list(bundle)[0]), False)
         self.assertEqual(pyvcard.strinteger("12345-122345"), 12345122345)
 
-    def html_test(self):
-        pass
+    def test_html(self):
+        conv = pyvcard.convert(bundle)
+        txt = conv.html().strresult()
+        f = open(os.path.join(test_path, "test.html"), "w", encoding="utf-8")
+        f.write(txt)
+        f.close()
+        parsed = pyvcard.parse_from(txt, "html").vcards()
+        f = open(os.path.join(test_path, "parsed.vcf"), "w", encoding="utf-8")
+        f.write(parsed.repr_vcard())
+        f.close()
 
-    def type_test(self):
-        pass
+    def test_type(self):
+        for vcard in bundle:
+            for prop in vcard:
+                prop.typedvalue
 
-    def migrate_test(self):
+    def test_migrate(self):
         pass
 
 
