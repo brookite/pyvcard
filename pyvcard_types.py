@@ -183,13 +183,13 @@ class DateTime(vCardTimeType):
         parsed = re.match(VALID_DATETIME, value[0])
         if not parsed:
             raise VCardValidationError("This value isn't datetime")
-        self._year = None if parsed.group(2) == "-" or parsed.group(1) is None else int(parsed.group(2))
-        self._month = None if parsed.group(3) == "-" or parsed.group(1) is None else int(parsed.group(3))
-        self._day = None if parsed.group(4) == "-" or parsed.group(1) is None else int(parsed.group(4))
-        self._h = 0 if parsed.group(6) == "-" or parsed.group(1) is None else int(parsed.group(6))
-        self._m = 0 if parsed.group(7) == "-" or parsed.group(1) is None else int(parsed.group(7))
-        self._s = 0 if parsed.group(8) == "-" or parsed.group(1) is None else int(parsed.group(8))
-        self._offset = None if parsed.group(10) == "-" or parsed.group(1) is None else parsed.group(10)
+        self._year = None if parsed.group(2) == "-" or parsed.group(3) is None else int(parsed.group(2))
+        self._month = None if parsed.group(3) == "-" or parsed.group(3) is None else int(parsed.group(3))
+        self._day = None if parsed.group(4) == "-" or parsed.group(4) is None else int(parsed.group(4))
+        self._h = 0 if parsed.group(6) == "-" or parsed.group(6) is None else int(parsed.group(6))
+        self._m = 0 if parsed.group(7) == "-" or parsed.group(7) is None else int(parsed.group(7))
+        self._s = 0 if parsed.group(8) == "-" or parsed.group(8) is None else int(parsed.group(8))
+        self._offset = None if parsed.group(10) == "-" or parsed.group(10) is None else parsed.group(10)
 
     @property
     def seconds(self):

@@ -192,7 +192,6 @@ def _unfold_lines(strings):
                 raise VCardFormatError("Illegal whitespace at string 1")
             lines[-1] += string
         elif len(lines) > 0:
-            # or lines[-1].endswith("=")
             if lines[-1].endswith("=0D=0A="):
                 lines[-1] += string
             else:

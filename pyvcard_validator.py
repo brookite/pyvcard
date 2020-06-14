@@ -85,9 +85,9 @@ def values_count_required(property, mincount, maxcount):
     :type       maxcount:  int
     """
     if len(property.values) < mincount:
-        raise VCardValidationError(f"Values of property {property.name} count must be >= {mincount}", property)
+        raise VCardValidationError(f"Values of property {property.name} count must be in [{mincount}, {maxcount}]", property)
     elif len(property.values) > maxcount:
-        raise VCardValidationError(f"Values of property {property.name} count must be <= {maxcount}", property)
+        raise VCardValidationError(f"Values of property {property.name} count must be in [{mincount}, {maxcount}]", property)
 
 
 def params_count_required(property, mincount, maxcount):
@@ -102,9 +102,9 @@ def params_count_required(property, mincount, maxcount):
     :type       maxcount:  int
     """
     if len(property.params) < mincount:
-        raise VCardValidationError(f"Values of property {property.name} count must be >= {mincount}", property)
+        raise VCardValidationError(f"Values of property {property.name} count must be in [{mincount}, {maxcount}]", property)
     elif len(property.params) > maxcount:
-        raise VCardValidationError(f"Values of property {property.name}  count must be <= {maxcount}", property)
+        raise VCardValidationError(f"Values of property {property.name}  count must be in [{mincount}, {maxcount}]", property)
 
 
 def validate_value_parameter(property, values, param_required=False, text_allowed=True):
