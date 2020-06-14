@@ -191,6 +191,10 @@ class vcardtest(unittest.TestCase):
         f = open(os.path.join(test_path, "parsed.vcf"), "w", encoding="utf-8")
         f.write(parsed.repr_vcard())
         f.close()
+        f = open(os.path.join(test_path, "example.html"), "r", encoding="utf-8")
+        txt = f.read()
+        f.close()
+        parsed = pyvcard.parse_from(txt, "html").vcards()
 
     def test_type(self):
         for vcard in bundle:

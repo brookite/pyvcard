@@ -5,6 +5,7 @@ import pyvcard
 
 try:
     from bs4 import BeautifulSoup as bs
+    from bs4.element import Tag
     _lib_imported = True
 except Exception:
     _lib_imported = False
@@ -24,13 +25,24 @@ SUPPORTED_TAGS = set([
 ])
 
 
-def _has_class(tag, *tags):
+def _get_string(tag):
+    string = tag.string
+    if string is None:
+        string = ""
+    return string
+
+
+def _has_class(tag, *tags, target=None):
+    if not isinstance(tag, Tag):
+        return False
     if "class" not in tag.attrs:
         return False
     if len(tag["class"]) == 0:
         return False
     else:
-        lst = list(filter(lambda x: x in SUPPORTED_TAGS, tag["class"]))
+        lst = list(tag["class"])
+        if target is not None:
+            return target in lst and target in tags
         if len(lst) > 0:
             for t in lst:
                 if t in tags:
@@ -48,58 +60,68 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
 
     def _is_type_and_value(self, tag):
         value = []
+        classes = []
         for subtag in tag:
-            if isinstance(subtag, str):
-                value.append(subtag)
-            elif "value" in subtag["class"]:
-                value.append(subtag.string)
+            if isinstance(subtag, Tag):
+                classes.extend(subtag["class"])
+        if "type" in classes and "value" in classes:
+            for subtag in tag:
+                if isinstance(subtag, str):
+                    value.append(subtag)
+                elif "value" in subtag["class"]:
+                    value.append(_get_string(subtag))
         return value
 
-    def _struct_types_parse(self, prop, childs):
-        if _has_class(prop, "n"):
+    def _struct_types_parse(self, prop, childs, target=None):
+        if _has_class(prop, "fn", target=target):
+            s = ""
+            for child in childs:
+                s += _get_string(child)
+            return [s]
+        elif _has_class(prop, "n", target=target):
             n_arr = ["" for i in range(5)]
             for child in childs:
                 if _has_class(child, "family-name"):
-                    n_arr[0] += child.string
-                if _has_class(child) == "given-name":
-                    n_arr[1] += child.string
-                if _has_class(child) == "additional-name":
-                    n_arr[2] += child.string
-                if _has_class(child) == "honorific-prefix":
-                    n_arr[3] += child.string
-                if _has_class(child) == "honorific-suffix":
-                    n_arr[4] += child.string
+                    n_arr[0] += _get_string(child)
+                elif _has_class(child, "given-name"):
+                    n_arr[1] += _get_string(child)
+                elif _has_class(child, "additional-name"):
+                    n_arr[2] += _get_string(child)
+                elif _has_class(child, "honorific-prefix"):
+                    n_arr[3] += _get_string(child)
+                elif _has_class(child, "honorific-suffix"):
+                    n_arr[4] += _get_string(child)
             return n_arr
-        elif _has_class(prop, "adr"):
+        elif _has_class(prop, "adr", target=target):
             adr_arr = ["" for i in range(7)]
             for child in childs:
                 if _has_class(child, "post-office-box"):
-                    adr_arr[0] += child.string
-                if _has_class(child, "extended-address"):
-                    adr_arr[1] += child.string
-                if _has_class(child, "street-address"):
-                    adr_arr[2] += child.string
-                if _has_class(child, "locality"):
-                    adr_arr[3] += child.string
-                if _has_class(child, "region"):
-                    adr_arr[4] += child.string
-                if _has_class(child, "postal-code"):
-                    adr_arr[5] += child.string
-                if _has_class(child, "country-name"):
-                    adr_arr[6] += child.string
+                    adr_arr[0] += _get_string(child)
+                elif _has_class(child, "extended-address"):
+                    adr_arr[1] += _get_string(child)
+                elif _has_class(child, "street-address"):
+                    adr_arr[2] += _get_string(child)
+                elif _has_class(child, "locality"):
+                    adr_arr[3] += _get_string(child)
+                elif _has_class(child, "region"):
+                    adr_arr[4] += _get_string(child)
+                elif _has_class(child, "postal-code"):
+                    adr_arr[5] += _get_string(child)
+                elif _has_class(child, "country-name"):
+                    adr_arr[6] += _get_string(child)
             return adr_arr
-        elif _has_class(prop, "geo"):
+        elif _has_class(prop, "geo", target=target):
             geo_arr = ["" for i in range(2)]
             for child in childs:
                 if _has_class(child, "latitude"):
-                    geo_arr[0] += child.string
-                if _has_class(child, "longitude"):
-                    geo_arr[1] += child.string
+                    geo_arr[0] += _get_string(child)
+                elif _has_class(child, "longitude"):
+                    geo_arr[1] += _get_string(child)
             return geo_arr
         else:
             arr = []
             for child in childs:
-                arr.append(child.string)
+                arr.append(_get_string(child))
             return arr
 
     def _preprocess_tag(self, tagname, hcard):
@@ -123,17 +145,17 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
                         if "title" in childs[0].attrs:
                             values = [childs[0]["title"]]
                         else:
-                            values = [childs[0].string]
+                            values = [_get_string(childs[0])]
                     elif childs[0].name == "data":
                         if "value" in childs[0].attrs:
                             values = childs[0]["value"].split(";")
                         else:
-                            values = [childs[0].string]
+                            values = [_get_string(childs[0])]
                     elif childs[0].name == "time":
                         if "datetime" in childs[0].attrs:
                             values = [childs[0]["datetime"]]
                         else:
-                            values = [childs[0].string]
+                            values = [_get_string(childs[0])]
                     elif childs[0].name == "img":
                         if "src" in childs[0].attrs:
                             values = childs[0]["src"]
@@ -142,37 +164,40 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
                     elif childs[0].name == "object":
                         values = childs[0]["data"]
                     else:
-                        values = pyvcard.split_noescape(childs[0].string, ";")
+                        values = pyvcard.split_noescape(_get_string(childs[0]), ";")
             elif len(childs) == 0:
                 if prop.name == "abbr":
                     if "title" in prop.attrs:
                         values = [prop["title"]]
                     else:
-                        values = [prop.string]
+                        values = [_get_string(prop)]
                 elif prop.name == "data":
                     if "value" in prop.attrs:
                         values = prop["value"].split(";")
                     else:
-                        values = [prop.string]
+                        values = [_get_string(prop)]
                 elif prop.name == "time":
                     if "datetime" in prop.attrs:
                         values = [prop["datetime"]]
                     else:
-                        values = [prop.string]
+                        values = [_get_string(prop)]
                 elif prop.name == "img":
                     if "src" in prop.attrs:
                         values = prop["src"]
                     elif "data" in prop.attrs:
                         values = prop["data"]
                     else:
-                        values = []
+                        continue
                 elif prop.name == "object":
                     values = prop["data"]
+                else:
+                    continue
             elif len(self._is_type_and_value(childs)) > 0:
                 values = self._is_type_and_value(childs)
             else:
-                if _has_class(prop, "adr", "n", "geo", "org"):
-                    values = self._struct_types_parse(prop, childs)
+                values = self._struct_types_parse(prop, childs, tagname)
+                if len(values) == 0:
+                    continue
             self.builder.add_property(tagname, values, params)
 
     def vcards(self):

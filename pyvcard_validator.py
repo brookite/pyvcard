@@ -409,7 +409,7 @@ def validate_property(property, version):
         else:
             values_count_required(property, 2, 2)
             for i in property.values:
-                validate_float(i)
+                validate_float(i, property)
     elif property.name == "TITLE":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
@@ -450,7 +450,7 @@ def validate_property(property, version):
             value = ";".join(property.values)
             property._values = [value]
         else:
-            values_count_required(property, 1, 1)
+            values_count_required(property, 0, 1)
     elif property.name == "REV":
         if version == "4.0":
             validate_value_parameter(property, ["timestamp"], text_allowed=False)
