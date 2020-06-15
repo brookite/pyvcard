@@ -1907,54 +1907,72 @@ def parse_name_property(prop):
     return result
 
 
+def migrate_vcard(vcard):
+    return VersionMigrator(vcard)
+
+
 class VersionMigrator:
     def __init__(self, source):
         self._source = source
+        if not is_vcard(self._source):
+            raise TypeError("vCard required, not vCardSet")
 
-    def _version_conv(self):
-        pass
+    def _version_conv(self, version):
+        if version == VERSION.V2_1:
+            version = "2.1"
+        elif version == VERSION.V3:
+            version = "3.0"
+        elif version == VERSION.V4:
+            version = "4.0"
+        return version
 
     def migrate(self, version):
-        version = self._version_conv()
-        if self._source == "2.0" and version == "3.0":
+        version = self._version_conv(version)
+        if self._source.version.value == "2.1" and version == "3.0":
             return self._2to3()
-        elif self._source == "3.0" and version == "4.0":
+        elif self._source.version.value == "3.0" and version == "4.0":
             return self._3to4()
-        elif self._source == "2.0" and version == "4.0":
-            return self._2to3(self._3to4())
-        elif self._source == "3.0" and version == "2.0":
+        elif self._source.version.value == "2.1" and version == "4.0":
+            return self._3to4(self._2to3())
+        elif self._source.version.value == "3.0" and version == "2.1":
             return self._3to2()
-        elif self._source == "4.0" and version == "3.0":
+        elif self._source.version.value == "4.0" and version == "3.0":
             return self._4to3()
-        elif self._source == "4.0" and version == "2.0":
+        elif self._source.version.value == "4.0" and version == "2.1":
             return self._3to2(self._4to3())
+        else:
+            return self._source
 
-    def _2to3(self):
+    def _2to3(self, source=None):
+        if source is None:
+            source = self._source
         args = []
         args.append(_vCard_entry("VERSION", "3.0"))
-        for prop in self._vcard:
+        for prop in source:
             if prop.name == "VERSION":
                 continue
             params = {}
             for param in prop.params:
                 if param == "ENCODING":
-                    if prop.params["ENCODING"].upper() != "QUOTED-PRINTABLE":
+                    if prop.params["ENCODING"].upper() == "QUOTED-PRINTABLE":
                         continue
                 if prop.params[param] is None:
                     if "TYPE" not in params:
-                        params["TYPE"] = prop.params[param]
+                        params["TYPE"] = param.lower()
                     else:
-                        params["TYPE"] += "," + prop.params[param]
+                        params["TYPE"] += "," + param.lower()
                     continue
                 params[param] = prop.params[param]
-            args.append(_vCard_entry(prop.name, prop.values, prop.params, prop.group, version="3.0"))
+            args.append(_vCard_entry(prop.name, prop.values, params, prop.group, version="3.0", encoded=False))
         return _vCard(args, "3.0")
 
-    def _3to4(self):
+    def _3to4(self, source=None):
+        if source is None:
+            source = self._source
         args = []
         args.append(_vCard_entry("VERSION", "4.0"))
-        for prop in self._vcard:
-            if prop.name in ["VERSION", "AGENT"]:
+        for prop in source:
+            if prop.name in ["VERSION", "AGENT", "LABEL", "NAME", "MAILER", "CLASS"]:
                 continue
             values = prop.values
             params = prop.params
@@ -1963,36 +1981,46 @@ class VersionMigrator:
                     if prop.name in ["LOGO", "PHOTO"]:
                         vtype = "data:image/{};base64,"
                         replace = "jpeg"
-                    elif prop.name in ["SOUND"]:
+                    elif prop.name == "SOUND":
                         vtype = "data:audio/{};base64,"
                         replace = "basic"
-                    elif prop.name in ["KEY"]:
+                    elif prop.name == "KEY":
                         vtype = "application/{};base64,"
                         replace = "pgp-keys"
+                    else:
+                        print(prop.name, prop.params)
                     if "TYPE" in prop.params:
                         replace = prop.params["TYPE"]
                     param = prop.params
-                    params.remove("ENCODING")
+                    params.pop("ENCODING")
                     vtype.format(replace)
-                    values = [vtype + prop.value]
+                    if isinstance(prop.value, bytes):
+                        val = base64_encode(prop.value)
+                    else:
+                        val = prop.value
+                    values = [vtype + val]
                 elif param == "TYPE":
                     params["TYPE"] = params["TYPE"].split(",")
                     if "intl" in params["TYPE"]:
-                        params["TYPE"].remove("intl")
+                        params["TYPE"].pop("intl")
                     elif "dom" in params["TYPE"]:
-                        params["TYPE"].remove("dom")
+                        params["TYPE"].pop("dom")
                     elif "postal" in params["TYPE"]:
-                        params["TYPE"].remove("postal")
+                        params["TYPE"].pop("postal")
                     if "parcel" in params["TYPE"]:
-                        params["TYPE"].remove("parcel")
+                        params["TYPE"].pop("parcel")
                     params["TYPE"] = ",".join(params["TYPE"])
-            args.append(_vard_entry(prop.name, values, params, prop.group))
+            if prop.name == "GEO":
+                values = ["geo:" + ",".join(prop.values)]
+            args.append(_vCard_entry(prop.name, values, params, prop.group, version="4.0", encoded=False))
         return _vCard(args, version="4.0")
 
-    def _3to2(self):
+    def _3to2(self, source=None):
+        if source is None:
+            source = self._source
         args = []
         args.append(_vCard_entry("VERSION", "2.0"))
-        for prop in self._vcard:
+        for prop in source:
             if prop.name in [
                 "VERSION", "CATEGORIES", "CLASS", "NICKNAME",
                 "PRODID", "SORT-STRING", "SOURCE", "NAME", "PROFILE"
@@ -2004,19 +2032,25 @@ class VersionMigrator:
                     params["ENCODING"] = "quoted-printable"
                     break
             for param in prop.params:
-                if prop.params["param"] is None:
-                    types = prop.params["param"].split(",")
+                if param == "TYPE":
+                    types = prop.params[param].split(",")
                     for t in types:
                         params[t] = None
                 params[param] = prop.params[param]
-            args.append(_vCard_entry(prop.name, prop.values, prop.params, prop.group, version="2.0"))
+            args.append(_vCard_entry(prop.name, prop.values, params, prop.group, version="2.0", encoded=False))
         return _vCard(args, "2.0")
 
-    def _4to3(self):
+    def _4to3(self, source=None):
+        if source is None:
+            source = self._source
         args = []
         args.append(_vCard_entry("VERSION", "4.0"))
-        for prop in self._vcard:
-            if prop.name in ["VERSION", "AGENT"]:
+        for prop in source:
+            if prop.name in [
+                "VERSION", "RELATED", "KIND", "GENDER",
+                "LANG", "ANNIVERSARY", "XML", "CLIENTPIDMAP",
+                "FBURL", "CALADRURI", "CAPURI", "CALURI", "IMPP"
+            ]:
                 continue
             values = []
             params = prop.params
@@ -2025,16 +2059,21 @@ class VersionMigrator:
                 if prop.name in ["LOGO", "PHOTO"]:
                     regex = regex.format("image")
                     m = re.match(regex, value)
-                elif prop.name in ["SOUND"]:
+                elif prop.name == "SOUND":
                     regex = regex.format("audio")
                     m = re.match(regex, value)
-                elif prop.name in ["KEY"]:
+                elif prop.name == "KEY":
                     regex = regex.format("application")
                     m = re.match(regex, value)
+                elif prop.name == "GEO":
+                    values = prop.value.replace("geo:", "").split(",")
+                    break
+                else:
+                    m = None
                 if m:
                     value = base64_decode(re.sub(regex, value))
                     params["ENCODING"] = "b"
                     params["TYPE"] = m.group(1)
                 values.append(value)
-            args.append(_vard_entry(prop.name, values, params, prop.group))
+            args.append(_vCard_entry(prop.name, values, params, prop.group, version="3.0", encoded=False))
         return _vCard(args, version="4.0")

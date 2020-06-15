@@ -18,7 +18,7 @@ for i in os.listdir(vcard_dir):
         except pyvcard.VCardValidationError as e:
             print(pth, str(e))
         except Exception as e:
-            print_exc()
+            # print_exc()
             print(pth, str(e))
 bundle.setindex(indexer)
 
@@ -202,7 +202,17 @@ class vcardtest(unittest.TestCase):
                 prop.typedvalue
 
     def test_migrate(self):
-        pass
+        migrated = []
+        for vcard in bundle:
+            try:
+                migrated.append(pyvcard.VersionMigrator(vcard).migrate("2.1"))
+                migrated.append(pyvcard.VersionMigrator(vcard).migrate("3.0"))
+                migrated.append(pyvcard.VersionMigrator(vcard).migrate("4.0"))
+            except Exception as e:
+                print(str(e))
+        f = open(os.path.join(test_path, "migr.vcf"), "w", encoding="utf-8")
+        f.write(pyvcard.vCardSet(migrated).repr_vcard())
+        f.close()
 
 
 if __name__ == "__main__":

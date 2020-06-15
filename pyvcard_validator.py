@@ -21,7 +21,8 @@ TYPE_TEL = [
     'isdn',
     'pcs',
     'textphone',
-    'main'
+    'main',
+    'other'
 ]
 LABEL_TEL = [
     'dom',
@@ -30,7 +31,9 @@ LABEL_TEL = [
     'parcel',
     'home',
     'work',
-    'pref'
+    'pref',
+    'other',
+    'customtype'
 ]
 TYPE_EMAIL = [
     'internet',
