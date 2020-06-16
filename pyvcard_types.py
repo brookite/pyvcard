@@ -7,6 +7,9 @@ import pyvcard_converters
 
 
 def define_type(property):
+    """
+    Utility method. Defines the type of value
+    """
     if property.name == "N":
         return NameType(property.values)
     else:

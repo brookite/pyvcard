@@ -27,7 +27,7 @@ RFC 2426 - vCard 3.0
 RFC 6350 - vCard 4.0
 RFC 6351 - xCard
 RFC 7095 - jCard
-hCard
+http://microformats.org/wiki/hcard -  hCard
 """
 
 
@@ -82,7 +82,7 @@ def unescape(string, only_double=False):
     return r
 
 
-def quoted_to_str(string, encoding="utf-8"):
+def quoted_to_str(string, encoding="utf-8", property=None):
     """
     Decodes Quoted-Printable text to string with encoding
 
@@ -96,6 +96,8 @@ def quoted_to_str(string, encoding="utf-8"):
     except Exception as e:
         if quopri_warning:
             warnings.warn("Quoted-Printable string wasn't decoded: %s" % str(e))
+        if property is not None:
+            property._encoding_flag = False
         return string
 
 
@@ -151,7 +153,7 @@ def base64_encode(value):
     return base64.b64encode(value).decode("utf-8")
 
 
-def base64_decode(value):
+def base64_decode(value, property=None):
     """
     Decodes base64 to bytes
 
@@ -164,6 +166,8 @@ def base64_decode(value):
         return base64.b64decode(value)
     except Exception as e:
         warnings.warn("Bytes wasn't decoded from Base64: %s" % str(e))
+        if property is not None:
+            property._encoding_flag = False
         return bytes(value)
 
 
@@ -202,6 +206,18 @@ def _unfold_lines(strings):
 
 
 def split_noescape(str, sep):
+    """
+    Splits with no escape.
+    Similar to str.split but does not consider escaped characters
+
+    :param      str:  The string
+    :type       str:  str
+    :param      sep:  The separator
+    :type       sep:  str
+
+    :returns:   splitted string
+    :rtype:     list
+    """
     return re.split(r'(?<!\\)' + sep, str)
 
 
@@ -676,10 +692,10 @@ def decode_property(property):
         for i in range(len(property._values)):
             if property._params["ENCODING"].upper() == "QUOTED-PRINTABLE":
                 if property._values[i] != '':
-                    property._values[i] = quoted_to_str(property._values[i], charset)
+                    property._values[i] = quoted_to_str(property._values[i], charset, property)
             elif property._params["ENCODING"].upper() in ["B", "BASE64"]:
                 if property._values[i] != '':
-                    property._values[i] = base64_decode(property._values[i].encode(charset))
+                    property._values[i] = base64_decode(property._values[i].encode(charset), property)
 
 
 class _vCard_entry:
@@ -706,7 +722,12 @@ class _vCard_entry:
         """
         self._name = name
         self._params = params
-        self._values = list(values)
+        self._encoding_flag = True
+        self._escaping_flag = True
+        if isinstance(values, str):
+            self._values = [values]
+        else:
+            self._values = list(values)
         self._group = group
         if self._group is not None:
             if self._group.endswith("."):
@@ -769,6 +790,8 @@ class _vCard_entry:
                 string += i
         values = list(self._values)
         expect_quopri = False
+        if not self._encoding_flag:
+            encode = False
         if "ENCODING" in self._params:
             if self._params["ENCODING"].upper() == "QUOTED-PRINTABLE" and encode:
                 expect_quopri = True
@@ -780,10 +803,14 @@ class _vCard_entry:
                         values[i] = str_to_quoted(values[i], charset)
             elif self._params["ENCODING"].upper() in ["B", "BASE64"]:
                 for i in range(len(values)):
-                    values[i] = base64_encode(values[i])
+                    if self._encoding_flag:
+                        values[i] = base64_encode(values[i])
+                    else:
+                        values[i] = str(values[i])
         else:
             for i in range(len(values)):
-                values[i] = escape(values[i])
+                if self._escaping_flag:
+                    values[i] = escape(values[i])
         values = ";".join(values)
         string += f":{values}"
         return _fold_line(string, expect_quopri)
@@ -1908,11 +1935,27 @@ def parse_name_property(prop):
 
 
 def migrate_vcard(vcard):
-    return VersionMigrator(vcard)
+    """
+    Migrates vCard objects to various vCard standard version
+
+    :param      vcard:  The vcard
+    :type       vcard:  vCard object
+    """
+    return _VersionMigrator(vcard)
 
 
-class VersionMigrator:
+class _VersionMigrator:
+    """
+    This class describes a vCard version migrator.
+    """
+
     def __init__(self, source):
+        """
+        Constructs a new instance.
+
+        :param      source:  The source
+        :type       source:  vCard object
+        """
         self._source = source
         if not is_vcard(self._source):
             raise TypeError("vCard required, not vCardSet")
@@ -1927,6 +1970,12 @@ class VersionMigrator:
         return version
 
     def migrate(self, version):
+        """
+        Migrates vCard to specified version
+
+        :param      version:  The version
+        :type       version:  str or VERSION
+        """
         version = self._version_conv(version)
         if self._source.version.value == "2.1" and version == "3.0":
             return self._2to3()
@@ -1987,13 +2036,11 @@ class VersionMigrator:
                     elif prop.name == "KEY":
                         vtype = "application/{};base64,"
                         replace = "pgp-keys"
-                    else:
-                        print(prop.name, prop.params)
                     if "TYPE" in prop.params:
                         replace = prop.params["TYPE"]
                     param = prop.params
                     params.pop("ENCODING")
-                    vtype.format(replace)
+                    vtype = vtype.format(replace)
                     if isinstance(prop.value, bytes):
                         val = base64_encode(prop.value)
                     else:
@@ -2010,6 +2057,12 @@ class VersionMigrator:
                     if "parcel" in params["TYPE"]:
                         params["TYPE"].pop("parcel")
                     params["TYPE"] = ",".join(params["TYPE"])
+                elif prop.params[param] is None:
+                    params.pop(param)
+                    if "TYPE" not in params:
+                        params["TYPE"] = param.lower()
+                    else:
+                        params["TYPE"] += "," + param.lower()
             if prop.name == "GEO":
                 values = ["geo:" + ",".join(prop.values)]
             args.append(_vCard_entry(prop.name, values, params, prop.group, version="4.0", encoded=False))
@@ -2036,6 +2089,7 @@ class VersionMigrator:
                     types = prop.params[param].split(",")
                     for t in types:
                         params[t] = None
+                    continue
                 params[param] = prop.params[param]
             args.append(_vCard_entry(prop.name, prop.values, params, prop.group, version="2.0", encoded=False))
         return _vCard(args, "2.0")
@@ -2044,7 +2098,7 @@ class VersionMigrator:
         if source is None:
             source = self._source
         args = []
-        args.append(_vCard_entry("VERSION", "4.0"))
+        args.append(_vCard_entry("VERSION", "3.0"))
         for prop in source:
             if prop.name in [
                 "VERSION", "RELATED", "KIND", "GENDER",
@@ -2076,4 +2130,4 @@ class VersionMigrator:
                     params["TYPE"] = m.group(1)
                 values.append(value)
             args.append(_vCard_entry(prop.name, values, params, prop.group, version="3.0", encoded=False))
-        return _vCard(args, version="4.0")
+        return _vCard(args, version="3.0")

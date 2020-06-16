@@ -183,7 +183,9 @@ class vcardtest(unittest.TestCase):
 
     def test_html(self):
         conv = pyvcard.convert(bundle)
-        txt = conv.html().strresult()
+        h = conv.html()
+        txt = h.strresult()
+        h.include_to_html(os.path.join(test_path, "bightml.html"))
         f = open(os.path.join(test_path, "test.html"), "w", encoding="utf-8")
         f.write(txt)
         f.close()
@@ -205,14 +207,15 @@ class vcardtest(unittest.TestCase):
         migrated = []
         for vcard in bundle:
             try:
-                migrated.append(pyvcard.VersionMigrator(vcard).migrate("2.1"))
-                migrated.append(pyvcard.VersionMigrator(vcard).migrate("3.0"))
-                migrated.append(pyvcard.VersionMigrator(vcard).migrate("4.0"))
+                migrated.append(pyvcard.migrate_vcard(vcard).migrate("2.1"))
+                migrated.append(pyvcard.migrate_vcard(vcard).migrate("3.0"))
+                migrated.append(pyvcard.migrate_vcard(vcard).migrate("4.0"))
             except Exception as e:
                 print(str(e))
         f = open(os.path.join(test_path, "migr.vcf"), "w", encoding="utf-8")
         f.write(pyvcard.vCardSet(migrated).repr_vcard())
         f.close()
+        pyvcard.openfile(os.path.join(test_path, "migr.vcf"), encoding="utf-8", indexer=indexer).vcards()
 
 
 if __name__ == "__main__":

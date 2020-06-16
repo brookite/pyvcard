@@ -74,13 +74,13 @@ __Python 3.6+ recommended. WARNING: pyvcard is in early alpha. It may be unstabl
 7. Convert vCard or vCardSet to XML, JSON, CSV
 
 ```python
-    pyvcard.convert(vcardset).xml().result() #may use 'json', 'xml', 'csv'
+    pyvcard.convert(vcardset).xml().result() #may use 'json', 'xml', 'csv', 'html'
 ```
 
 8. Parse from various sources
 
 ```python
-    pyvcard.parse_from(source, "csv") #may use 'json', 'xml', 'csv', 'vcf'
+    pyvcard.parse_from(source, "csv") #may use 'json', 'xml', 'csv', 'vcf', 'html'
 ```
 
 9. Difference search (for example using fuzzywuzzy)
@@ -108,12 +108,3 @@ __Python 3.6+ recommended. WARNING: pyvcard is in early alpha. It may be unstabl
     pyvcard.is_vcard(vcard)
     pyvcard.is_vcard_property(vcard[0])
 ```
-
-## TASK LIST:
-### Version 1.0 alpha dev 2:
-
-* hCard (HTML)
-
-* Version migration function
-
-* Property values types structures

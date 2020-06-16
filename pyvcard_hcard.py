@@ -53,6 +53,10 @@ def _has_class(tag, *tags, target=None):
 
 
 class hCard_Parser(pyvcard_parsers.AbstractParser):
+    """
+    This class describes a HTML to vCard object parser (hCard)
+    """
+
     def __init__(self, html, indexer):
         _check_lib()
         self._parser = bs(html, "html.parser")
@@ -201,6 +205,12 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
             self.builder.add_property(tagname, values, params)
 
     def vcards(self):
+        """
+        Returns result of parsing
+
+        :returns:   vCard objects
+        :rtype:     vCardSet
+        """
         self.vcards = []
         self.builder = pyvcard.builder(indexer=self.indexer, version="3.0")
         self._hcards = self._parser.select(".vcard")
@@ -213,6 +223,10 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
 
 
 class hCard_Converter(pyvcard_converters.AbstractConverter):
+    """
+    This class describes a vCard object to HTML converter (hCard)
+    """
+
     def __init__(self, vcard):
         _check_lib()
         self._vcard = vcard
@@ -342,6 +356,9 @@ class hCard_Converter(pyvcard_converters.AbstractConverter):
         self.root.append(tag)
 
     def result(self):
+        """
+        Returns result of converting as bs4.element.Tag (BeautfiulSoup4)
+        """
         self.soup = bs(features="html.parser")
         for vcard in self._vcard:
             self.root = self.soup.new_tag("div", attrs={"class": "vcard"})
@@ -361,15 +378,26 @@ class hCard_Converter(pyvcard_converters.AbstractConverter):
         return self.soup
 
     def strresult(self):
+        """
+        Returns result of converting as string (HTML)
+        """
         return str(self.result())
 
-    def include_to_html(self, htmlpath):
-        with open(htmlpath, "r") as fd:
+    def include_to_html(self, htmlpath, encoding="utf-8"):
+        """
+        Includes hCards in body to HTML file
+
+        :param      htmlpath:  file path
+        :type       htmlpath:  str
+        :param      encoding:  The encoding of file
+        :type       encoding:  str
+        """
+        with open(htmlpath, "r", encoding=encoding) as fd:
             html = fd.read()
             htmlsoup = bs(html, "html.parser")
             body = htmlsoup.select("body")[0]
             body.append(self.result())
             text = str(htmlsoup)
-        with open(htmlpath, "w") as fd:
+        with open(htmlpath, "w", encoding=encoding) as fd:
             fd.write(text)
         return text

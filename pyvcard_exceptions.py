@@ -25,7 +25,13 @@ class VCardValidationError(Exception):
 
 
 class LibraryNotFoundError(Exception):
+    """
+    This class describes a exception what may be occure when pyvcard couldn't find required libraries
+
+    Libraries argument contains all required libraries
+    """
+
     def __init__(self, *libraries):
         lib = ", ".join(libraries)
         super().__init__(f"One or more libraries wasn't found ({lib}). Please install this")
-        self.property = property
+        self.libraries = libraries
