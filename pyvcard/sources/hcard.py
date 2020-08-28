@@ -1,6 +1,9 @@
-from pyvcard_exceptions import LibraryNotFoundError
-import pyvcard_parsers
-import pyvcard_converters
+from ..converters import AbstractConverter
+from ..exceptions import LibraryNotFoundError
+from ..parsers import AbstractParser
+from ..utils import split_noescape, base64_encode
+import pyvcard.vobject
+
 import pyvcard
 
 try:
@@ -52,7 +55,7 @@ def _has_class(tag, *tags, target=None):
             return False
 
 
-class hCard_Parser(pyvcard_parsers.AbstractParser):
+class hCard_Parser(AbstractParser):
     """
     This class describes a HTML to vCard object parser (hCard)
     """
@@ -168,7 +171,7 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
                     elif childs[0].name == "object":
                         values = childs[0]["data"]
                     else:
-                        values = pyvcard.split_noescape(_get_string(childs[0]), ";")
+                        values = split_noescape(_get_string(childs[0]), ";")
             elif len(childs) == 0:
                 if prop.name == "abbr":
                     if "title" in prop.attrs:
@@ -219,10 +222,10 @@ class hCard_Parser(pyvcard_parsers.AbstractParser):
                 self._preprocess_tag(tag, hcard)
             self.vcards.append(self.builder.build())
             self.builder = pyvcard.builder(indexer=self.indexer, version="3.0")
-        return pyvcard.vCardSet(self.vcards)
+        return pyvcard.vobject.vCardSet(self.vcards)
 
 
-class hCard_Converter(pyvcard_converters.AbstractConverter):
+class hCard_Converter(AbstractConverter):
     """
     This class describes a vCard object to HTML converter (hCard)
     """
@@ -230,8 +233,8 @@ class hCard_Converter(pyvcard_converters.AbstractConverter):
     def __init__(self, vcard):
         _check_lib()
         self._vcard = vcard
-        if pyvcard.is_vcard(self._vcard):
-            self._vcard = pyvcard.vCardSet([self._vcard])
+        if pyvcard.vobject.is_vcard(self._vcard):
+            self._vcard = pyvcard.vobject.vCardSet([self._vcard])
 
     def _add_span_tag(self, prop):
         tag = self.soup.new_tag("span", attrs={"class": prop.name.lower()})
@@ -260,14 +263,14 @@ class hCard_Converter(pyvcard_converters.AbstractConverter):
             values = []
             for value in property.values:
                 if isinstance(value, bytes):
-                    value = pyvcard.base64_encode(value)
+                    value = base64_encode(value)
                 values.append(value)
             valuetag.string = ";".join(values)
             tag.append(typetag)
             tag.append(valuetag)
         else:
             if isinstance(property.value, bytes):
-                tag.string = pyvcard.base64_encode(property.value)
+                tag.string = base64_encode(property.value)
             else:
                 tag.string = ";".join(property.values)
 

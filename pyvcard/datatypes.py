@@ -1,9 +1,9 @@
 import pyvcard
-from pyvcard_regex import *
-from pyvcard_exceptions import VCardValidationError
+from .regex import *
+from .exceptions import vCardValidationError
 from urllib.parse import urlparse
 import datetime
-import pyvcard_converters
+import pyvcard.converters
 
 
 def define_type(property):
@@ -13,7 +13,7 @@ def define_type(property):
     if property.name == "N":
         return NameType(property.values)
     else:
-        type_val = pyvcard_converters.determine_type(property)
+        type_val = pyvcard.converters.determine_type(property)
         if type_val == "uri":
             return URI(property.values)
         elif type_val == "text":
@@ -102,7 +102,7 @@ class Date(vCardTimeType):
         self._value = value
         parsed = re.match(VALID_DATE, value[0])
         if not parsed:
-            raise VCardValidationError("This value isn't date")
+            raise vCardValidationError("This value isn't date")
         if parsed.group(1) != "-" or parsed.group(1) is not None:
             self._year = int(parsed.group(1))
         else:
@@ -145,7 +145,7 @@ class Time(vCardTimeType):
         self._value = value
         parsed = re.match(VALID_TIME, value[0])
         if not parsed:
-            raise VCardValidationError("This value isn't time")
+            raise vCardValidationError("This value isn't time")
         if parsed.group(1) != "-" or parsed.group(1) is not None:
             self._h = int(parsed.group(1))
         else:
@@ -185,7 +185,7 @@ class DateTime(vCardTimeType):
         self._value = value
         parsed = re.match(VALID_DATETIME, value[0])
         if not parsed:
-            raise VCardValidationError("This value isn't datetime")
+            raise vCardValidationError("This value isn't datetime")
         self._year = None if parsed.group(2) == "-" or parsed.group(3) is None else int(parsed.group(2))
         self._month = None if parsed.group(3) == "-" or parsed.group(3) is None else int(parsed.group(3))
         self._day = None if parsed.group(4) == "-" or parsed.group(4) is None else int(parsed.group(4))

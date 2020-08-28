@@ -1,704 +1,23 @@
-import enum
 import re
-import warnings
-import pyvcard_hcard
-import pyvcard_converters
-import pyvcard_parsers
-import quopri
-import base64
 
-from pyvcard_regex import *
-from pyvcard_exceptions import (
-    VCardFormatError,
-    VCardValidationError
-)
-from pyvcard_validator import validate_property
-from pyvcard_types import *
+from pyvcard.datatypes import define_type
+from pyvcard.enums import _STATE, VERSION, SOURCES
+from pyvcard.exceptions import vCardFormatError, vCardValidationError
+from pyvcard.indexer import vCardIndexer
+from pyvcard.regex import VCARD_BORDERS, CONTENTLINE, PARAM, PARAM_21, CONTENTLINE_21
+from pyvcard.utils import split_noescape, unescape, quoted_to_str, base64_decode, _unfold_lines, strinteger, \
+    base64_encode, str_to_quoted, escape, _fold_line
+from pyvcard.validator import validate_property
 
+import pyvcard.sources.jcard
+import pyvcard.sources.xcard
+import pyvcard.sources.csv_source
+import pyvcard.sources.hcard
 
-quopri_warning = True
 validate_vcards = True
-line_warning = True
 
 
-"""
-Used official vCard standards
-RFC 2426 - vCard 3.0
-RFC 6350 - vCard 4.0
-RFC 6351 - xCard
-RFC 7095 - jCard
-http://microformats.org/wiki/hcard -  hCard
-"""
-
-
-class _STATE(enum.Enum):
-    BEGIN = 0
-    END = 1
-
-
-def escape(string, characters=[";", ",", "\n", "\r", ":"]):
-    """
-    Escapes listed characters with a character \\
-
-    :param      string:            The string
-    :type       string:            str
-    :param      characters:        The characters
-    :type       characters:        Array
-    """
-    if not isinstance(string, str):
-        return string
-    for char in characters:
-        if char in ["\t", "\r", "\n"]:
-            if char == "\n":
-                string = string.replace(char, "\\n")
-            elif char == "\t":
-                string = string.replace(char, "\\t")
-            elif char == "\r":
-                string = string.replace(char, "\\r")
-        else:
-            string = string.replace(char, "\\" + char)
-    return string
-
-
-def unescape(string, only_double=False):
-    """
-    Unescapes all escaped characters
-
-    :param      string:       The string
-    :type       string:       str
-    :param      only_double:  If need unescape only double '\\' characters
-    :type       only_double:  boolean
-    """
-    if string is None or isinstance(string, bytes):
-        return string
-    if only_double:
-        r = re.sub(r'\\\\n', r'\\n', string)
-        r = re.sub(r'\\\\r', r'\\r', r)
-    else:
-        r = re.sub(r'\\r', r'\r', string)
-        r = re.sub(r'\\n', r'\n', r)
-        r = re.sub(r'\\t', r'\t', r)
-        r = re.sub(r'\\(.)', r'\1', r)
-    return r
-
-
-def quoted_to_str(string, encoding="utf-8", property=None):
-    """
-    Decodes Quoted-Printable text to string with encoding
-
-    :param      string:    The target string
-    :type       string:    str
-    :param      encoding:  The encoding, default is UTF-8
-    :type       encoding:  str
-    """
-    try:
-        return quopri.decodestring(unescape(string)).decode(encoding)
-    except Exception as e:
-        if quopri_warning:
-            warnings.warn("Quoted-Printable string wasn't decoded: %s" % str(e))
-        if property is not None:
-            property._encoding_flag = False
-        return string
-
-
-def str_to_quoted(string, encoding="utf-8"):
-    """
-    Encoded string to Quoted-Printable text with encoding
-
-    :param      string:    The target string
-    :type       string:    str
-    :param      encoding:  The encoding, default is UTF-8
-    :type       encoding:  str
-    """
-    try:
-        string = quopri.encodestring(string.encode("utf-8")).decode("ascii")
-        return string.replace("\r", "=0D").replace("\n", "=0A").replace("==", "=")
-    except Exception as e:
-        if quopri_warning:
-            warnings.warn("String wasn't encoded to Quoted-Printable: %s" % str(e))
-        return string
-
-
-def strinteger(string):
-    """
-    Clears a string from non-numeric characters
-    :param      string:  The string
-    :type       string:  str
-
-    Returns a int or a float (if '.' was in string)
-    """
-    n = ""
-    if isinstance(string, int) or string == "":
-        return string
-    for i in string:
-        if i.isdigit() or i == ".":
-            n += i
-    if string[0] == "-":
-        n = "-" + n
-    try:
-        return int(n) if "." not in n else float(n)
-    except Exception:
-        return 0
-
-
-def base64_encode(value):
-    """
-    Encodes bytes to base64 encoding
-
-    :param      value:  The value
-    :type       value:  bytes
-
-    Retutns base64 encoded string
-    """
-    return base64.b64encode(value).decode("utf-8")
-
-
-def base64_decode(value, property=None):
-    """
-    Decodes base64 to bytes
-
-    :param      value:  The value
-    :type       value:  bytes
-
-    Retutns base64 decoded bytes
-    """
-    try:
-        return base64.b64decode(value)
-    except Exception as e:
-        warnings.warn("Bytes wasn't decoded from Base64: %s" % str(e))
-        if property is not None:
-            property._encoding_flag = False
-        return bytes(value)
-
-
-def _unfold_lines(strings):
-    """
-    Utility method. Don't recommend for use in outer code
-    Unfolds the lines in list
-    """
-    lines = []
-    for string in strings:
-        string.replace("\n", "")
-        if string == "":
-            continue
-        if len(string) > 75 and line_warning:
-            warnings.warn("Long line found in current VCard (length > 75)")
-        if string.startswith(" ") or string.startswith("\t"):
-            if len(lines) == 0:
-                raise VCardFormatError("Illegal whitespace at string 1")
-            lines[-1] += string[1:].lstrip()
-        elif string.startswith("="):
-            if len(lines) == 0:
-                raise VCardFormatError("Illegal whitespace at string 1")
-            lines[-1] += string[1:]
-        elif string.startswith(";"):
-            if len(lines) == 0:
-                raise VCardFormatError("Illegal whitespace at string 1")
-            lines[-1] += string
-        elif len(lines) > 0:
-            if lines[-1].endswith("=0D=0A="):
-                lines[-1] += string
-            else:
-                lines.append(string)
-        else:
-            lines.append(string)
-    return lines
-
-
-def split_noescape(str, sep):
-    """
-    Splits with no escape.
-    Similar to str.split but does not consider escaped characters
-
-    :param      str:  The string
-    :type       str:  str
-    :param      sep:  The separator
-    :type       sep:  str
-
-    :returns:   splitted string
-    :rtype:     list
-    """
-    return re.split(r'(?<!\\)' + sep, str)
-
-
-def _fold_line(string, expect_quopri=False):
-    """
-    Utility method. Don't recommend for use in outer code
-    Folds the line, may expect quoted-printable
-    """
-    if len(string) > 75:
-        cuts = len(string) // 75
-        strings = []
-        begin = 0
-        length = 75
-        add_char = ''
-        for i in range(cuts):
-            if i == 1:
-                length = 74
-            end = begin + length
-            tmp = string[begin:end]
-            if i > 0:
-                tmp = add_char + tmp
-            if expect_quopri:
-                while tmp[-1] != "=":
-                    end -= 1
-                    tmp = add_char + string[begin:end]
-                add_char = '='
-            else:
-                add_char = ' '
-            strings.append(tmp)
-            begin = end
-        if len(string[begin:]) > 0:
-            tmp = add_char + string[begin:]
-            strings.append(tmp)
-        return "\n".join(strings)
-    else:
-        return string
-
-
-class VERSION(enum.Enum):
-    """Enum of vCard versions. Supported 2.1-4.0 versions"""
-    @staticmethod
-    def get(version):
-        """
-        Returns version enum
-        """
-        if version == "2.1":
-            return VERSION.V2_1
-        elif version == "3.0":
-            return VERSION.V3
-        elif version == "4.0":
-            return VERSION.V4
-
-    V2_1 = "2.1"
-    V3 = "3.0"
-    V4 = "4.0"
-
-
-class SOURCES(enum.Enum):
-    """
-    Enum of sources supported sources
-    """
-    XML = "xml"
-    JSON = "json"
-    VCF = "vcf"
-    CSV = "csv"
-    HTML = "html"
-
-
-class vCardIndexer:
-    """
-    This class is used to create indexes for vСard, speeding up the search
-    This class does not guarantee a quick search, creators of third-party solutions
-    can inherit this class for their implementations
-    """
-
-    def __init__(self, index_params=False):
-        """
-        Constructs a new instance.
-
-        :param      index_params:  Indexes all properties (not only phone and name)
-        :type       index_params:  boolean
-        """
-        self._names = {}
-        self._indexparams = index_params
-        self._phones = {}
-        self._params = {}
-        self._vcards = []
-        self._groups = {}
-
-    def __bool__(self):
-        return True
-
-    @property
-    def names(self):
-        return self._names
-
-    @property
-    def phones(self):
-        return self._phones
-
-    @property
-    def params(self):
-        return self._params
-
-    def setindex(self, vcard):
-        """
-        Sets indexer as main for vCard
-
-        :param      vcard:  The target vCard
-        :type       vcard:  _vCard
-        """
-        if is_vcard(vcard):
-            vcard._indexer = self
-            self._vcards.append(vcard)
-
-    def index(self, entry, vcard):
-        """
-        Indexes property in vcard. Don't recommend for use in outer code
-        This method is used in vCard parsers
-
-        :param      entry:  vCard property
-        :type       entry:  _vCard_entry
-        :param      vcard:  The target vCard
-        :type       vcard:  _vCard
-        """
-        if isinstance(entry, _vCard_entry):
-            if entry.group is not None:
-                if entry.group not in self._groups:
-                    self._groups[entry.group] = []
-                self._groups[entry.group].append(vcard)
-            if entry.name == "FN":
-                if entry.values[0] not in self._names:
-                    self._names[entry.values[0]] = []
-                self._names[entry.values[0]].append(vcard)
-            elif entry.name == "N":
-                name = ";".join(entry.values)
-                if name not in self._names:
-                    self._names[name] = []
-                self._names[name].append(vcard)
-            elif entry.name == "TEL":
-                if entry.values[0] not in self._phones:
-                    self._phones[entry.values[0]] = []
-                self._phones[entry.values[0]].append(vcard)
-                if strinteger(entry.values[0]) not in self._phones:
-                    self._phones[strinteger(entry.values[0])] = []
-                self._phones[strinteger(entry.values[0])].append(vcard)
-            elif self._indexparams:
-                if entry.name not in self._params:
-                    self._params[entry.name] = {}
-
-                def type_convert(x):
-                    if isinstance(x, bytes):
-                        return base64_encode(x)
-                    else:
-                        return str(x)
-                ivalues = list(map(type_convert, entry.values))
-                if ";".join(ivalues) not in self._params[entry.name]:
-                    self._params[entry.name][";".join(ivalues)] = []
-                self._params[entry.name][";".join(ivalues)].append(vcard)
-
-    def __len__(self):
-        return len(self._names) + len(self._phones)
-
-    @property
-    def vcards(self):
-        return tuple(self._vcards)
-
-    def difference_search(self, type, value, diff_func, k=85, use_param=None):
-        """
-        Searches for specific parameters using a third-party function that returns an integer value similarity coefficient
-        (example: fuzzywuzzy module methods)
-
-        :param      type:       The type (name, phone, param)
-        :type       type:       str
-        :param      value:      The value that need find
-        :type       value:      str
-        :param      diff_func:  The difference function, returns integer value coefficient
-        :type       diff_func:  function or any callable object
-        :param      k:          the minimum value of the difference function at which it will be
-                                considered that the value is found
-        :type       k:          int
-        :param      use_param:  if not None and type is "param" finds only by property name
-        :type       use_param:  str or None
-        """
-        def filter_function(x):
-            x = str(x)
-            return diff_func(x, value) >= k
-
-        if type == "name" or type == "names":
-            array = list(filter(filter_function, self._names.keys()))
-            array2 = []
-            for i in array:
-                for k in self._names[i]:
-                    array2.append(k)
-            array = set(array2)
-        elif type == "phone" or type == "phones":
-            array = list(filter(filter_function, self._phones.keys()))
-            array2 = []
-            for i in array:
-                for k in self._phones[i]:
-                    array2.append(k)
-            array = set(array2)
-        elif type == "param" or type == "params":
-            array = set()
-            if use_param is None:
-                for param in self._params:
-                    temp = set(filter(filter_function, self._params[param]))
-                    for i in temp:
-                        for j in self._params[param][i]:
-                            array.add(j)
-            else:
-                temp = set(filter(filter_function, self._params[use_param]))
-                array.update(temp)
-                for i in temp:
-                    for j in self._params[use_param][i]:
-                        array.add(j)
-        return tuple(array)
-
-    def get_name(self, fn):
-        """
-        Gets the name in indexer.
-
-        :param      fn:   Full name
-        :type       fn:   str
-        """
-        return tuple(self._names[fn])
-
-    def get_phone(self, phone):
-        """
-        Gets the phone in indexer.
-
-        :param      phone:  The phone
-        :type       phone:  str or int
-        """
-        return tuple(self._phones[phone])
-
-    def get_param(self, param, value):
-        """
-        Gets the property values in indexer.
-
-        :param      param:  The parameter
-        :type       param:  str
-        :param      value:  The value
-        :type       value:  str
-        """
-        return tuple(self._params[param][value])
-
-    def get_group(self, group):
-        """
-        Gets the group in indexer.
-
-        :param      group:  The group
-        :type       group:  str
-        """
-        return tuple(self._groups[group])
-
-    def find_by_group(self, group, fullmatch=True, case=False):
-        """
-        Finds a by group in all indexed vcards.
-
-        :param      group:      The group
-        :type       group:      str
-        :param      fullmatch:  find by full match
-        :type       fullmatch:  boolean
-        :param      case:       case sensitivity
-        :type       case:       boolean
-        """
-        if group in self._groups and fullmatch:
-            return tuple(self._groups[group])
-        elif not fullmatch:
-            def filter_function(x):
-                if not case:
-                    value = x.lower()
-                    nonlocal group
-                    group = group.lower()
-                else:
-                    value = x
-                if fullmatch:
-                    return value == group
-                else:
-                    return group in value
-
-            lst = filter(filter_function, self._groups.keys())
-            result = set()
-            for i in lst:
-                for j in self._groups[i]:
-                    result.add(j)
-            return tuple(result)
-        else:
-            return tuple()
-
-    def find_by_name(self, fn, case=False, fullmatch=True):
-        """
-        Finds a by name in all indexed vcards.
-
-        :param      fn:      The name (list will be joined by ';')
-        :type       fn:      str
-        :param      fullmatch:  find by full match
-        :type       fullmatch:  boolean
-        :param      case:       case sensitivity
-        :type       case:       boolean
-        """
-        if fn in self._names and fullmatch:
-            return tuple(self._names[fn])
-        elif not fullmatch:
-            def filter_function(x):
-                if not case:
-                    if isinstance(x, str):
-                        value = x.lower()
-                    else:
-                        value = ";".join((map(str, x)))
-                    nonlocal fn
-                    fn = fn.lower()
-                else:
-                    value = x
-                if fullmatch:
-                    return value == fn
-                else:
-                    return fn in value
-
-            lst = filter(filter_function, self._names.keys())
-            result = set()
-            for i in lst:
-                for j in self._names[i]:
-                    result.add(j)
-            return tuple(result)
-        else:
-            return tuple()
-
-    def find_by_phone(self, number, fullmatch=False, parsestr=True):
-        """
-        Finds a by phone number in all indexed vcards.
-
-        :param      number:      The phone number
-        :type       number:      str or int
-        :param      fullmatch:  find by full match
-        :type       fullmatch:  boolean
-        :param      parsestr:    remove all non-digit symbols(default: True)
-        :type       parsestr:       boolean
-        """
-        if number in self._phones and fullmatch:
-            return tuple(self._phones[number])
-        elif not fullmatch:
-            def filter_function(x):
-                if parsestr:
-                    value = strinteger(x)
-                else:
-                    value = x
-                if fullmatch:
-                    return str(value) == str(number)
-                else:
-                    return str(number) in str(value)
-
-            lst = filter(filter_function, self._phones.keys())
-            result = set()
-            for i in lst:
-                for j in self._phones[i]:
-                    result.add(j)
-            return tuple(result)
-        else:
-            return tuple()
-
-    def find_by_phone_endswith(self, number, parsestr=True):
-        """
-        Finds a by phone number ending in all indexed vcards.
-
-        :param      number:      The phone number ending
-        :type       number:      str or int
-        :param      parsestr:    remove all non-digit symbols(default: True)
-        :type       parsestr:       boolean
-        """
-        if number in self._phones:
-            return tuple(self._phones[number])
-
-        def filter_function(x):
-            if parsestr:
-                value = strinteger(x)
-            else:
-                value = x
-            return str(value).endswith(str(number))
-
-        lst = filter(filter_function, self._phones.keys())
-        result = set()
-        for i in lst:
-            for j in self._phones[i]:
-                result.add(j)
-        return tuple(result)
-
-    def find_by_phone_startswith(self, number, parsestr=True):
-        """
-        Finds a by start of phone number in all indexed vcards.
-
-        :param      number:      Start of phone number
-        :type       number:      str or int
-        :param      parsestr:    remove all non-digit symbols(default: True)
-        :type       parsestr:       boolean
-        """
-        if number in self._phones:
-            return tuple(self._phones[number])
-
-        def filter_function(x):
-            if parsestr:
-                value = strinteger(x)
-            else:
-                value = x
-            return str(value).startswith(str(number))
-
-        lst = filter(filter_function, self._phones.keys())
-        result = set()
-        for i in lst:
-            for j in self._phones[i]:
-                result.add(j)
-        return tuple(result)
-
-    def find_by_property(self, paramname, value, fullmatch=True):
-        """
-        Finds a by property name and value.
-
-        :param      paramname:  The property name
-        :type       paramname:  str
-        :param      value:      The value
-        :type       value:      str or list
-        :param      fullmatch:  find by full match
-        :type       fullmatch:  boolean
-        """
-        if paramname in self._params:
-            if value in self._params[paramname] and fullmatch:
-                return (self._params[paramname][value])
-        if hasattr(value, "__iter__") and not isinstance(value, str):
-            value = ";".join(value)
-
-        def filter_function(x):
-            if fullmatch:
-                return x == value
-            else:
-                return value in x
-
-        s = []
-        lst = list(filter(filter_function, self._params[paramname].keys()))
-        for i in lst:
-            for j in self._params[paramname][i]:
-                s.append(i)
-        return tuple(set(s))
-
-    def find_by_value(self, value, fullmatch=True):
-        """
-        Finds a by property value.
-
-        :param      value:      The value
-        :type       value:      str or list
-        :param      fullmatch:  find by full match
-        :type       fullmatch:  boolean
-        """
-        result = []
-        for i in self._params:
-            result += self.find_by_property(i, value, fullmatch)
-        return tuple(set(result))
-
-
-def decode_property(property):
-    """
-    Utility method. Don't recommend for use in outer code
-    Decodes a property.
-
-    :param      property:  The property
-    :type       property:  vCard property
-    """
-    charset = "utf-8"
-    if "CHARSET" in property._params:
-        charset = property._params["CHARSET"].lower()
-    if "ENCODING" in property._params:
-        for i in range(len(property._values)):
-            if property._params["ENCODING"].upper() == "QUOTED-PRINTABLE":
-                if property._values[i] != '':
-                    property._values[i] = quoted_to_str(property._values[i], charset, property)
-            elif property._params["ENCODING"].upper() in ["B", "BASE64"]:
-                if property._values[i] != '':
-                    property._values[i] = base64_decode(property._values[i].encode(charset), property)
-
-
-class _vCard_entry:
+class vCard_entry:
     """
     This class describes a vCard property
     """
@@ -890,7 +209,7 @@ def _parse_line(string, version):
         return name, values, params_dict, group
     else:
         if string.strip() != "":
-            raise VCardFormatError(f"An parsing error occurred with string '{string}'")
+            raise vCardFormatError(f"An parsing error occurred with string '{string}'")
     return None
 
 
@@ -905,7 +224,7 @@ def parse_property(string):
     if c is None:
         return None
     else:
-        return _vCard_entry(*c)
+        return vCard_entry(*c)
 
 
 def _parse_lines(strings, indexer=None):
@@ -914,7 +233,7 @@ def _parse_lines(strings, indexer=None):
     Parses lines in list, indexer is supported
     """
     version = "4.0"
-    vcard = _vCard()
+    vcard = vCard()
     args = []
     card_opened = False
     is_version = False
@@ -923,17 +242,17 @@ def _parse_lines(strings, indexer=None):
     for string in strings:
         parsed = _parse_line(string.rstrip(), version)
         if parsed == _STATE.BEGIN:
-            vcard = _vCard()
+            vcard = vCard()
             if card_opened:
-                raise VCardFormatError(f"vCard didn't closed at line {i}")
+                raise vCardFormatError(f"vCard didn't closed at line {i}")
             card_opened = True
             buf = []
         elif parsed == _STATE.END:
             vcard._attrs = buf
             if not card_opened:
-                raise VCardFormatError(f"Double closing or missing begin at line {i}")
+                raise vCardFormatError(f"Double closing or missing begin at line {i}")
             if not is_version:
-                raise VCardFormatError("Missing VERSION property")
+                raise vCardFormatError("Missing VERSION property")
             card_opened = False
             is_version = False
             args.append(vcard)
@@ -942,18 +261,39 @@ def _parse_lines(strings, indexer=None):
                 is_version = True
                 version = "".join(parsed[1])
                 vcard._set_version(version)
-            entry = _vCard_entry(*parsed, version=version)
+            entry = vCard_entry(*parsed, version=version)
             if indexer is not None:
                 indexer.setindex(vcard)
                 indexer.index(entry, vcard)
             buf.append(entry)
         i += 1
     if card_opened:
-        raise VCardFormatError(f"vCard didn't closed at line {i}")
+        raise vCardFormatError(f"vCard didn't closed at line {i}")
     return args
 
 
-class _vCard_Parser:
+def decode_property(property):
+    """
+    Utility method. Don't recommend for use in outer code
+    Decodes a property.
+
+    :param      property:  The property
+    :type       property:  vCard property
+    """
+    charset = "utf-8"
+    if "CHARSET" in property._params:
+        charset = property._params["CHARSET"].lower()
+    if "ENCODING" in property._params:
+        for i in range(len(property._values)):
+            if property._params["ENCODING"].upper() == "QUOTED-PRINTABLE":
+                if property._values[i] != '':
+                    property._values[i] = quoted_to_str(property._values[i], charset, property)
+            elif property._params["ENCODING"].upper() in ["B", "BASE64"]:
+                if property._values[i] != '':
+                    property._values[i] = base64_decode(property._values[i].encode(charset), property)
+
+
+class vCard_Parser:
     """
     Parses a vCard files (VCF) or any vCard string
     """
@@ -962,7 +302,7 @@ class _vCard_Parser:
         self.indexer = indexer
         if isinstance(source, str):
             if source.strip() == "":
-                raise VCardValidationError("Empty file")
+                raise vCardValidationError("Empty file")
             source = source.splitlines(False)
             source = _unfold_lines(source)
             self.__args = _parse_lines(source, self.indexer)
@@ -986,7 +326,7 @@ class _vCard_Parser:
         return vCardSet(self.__args, indexer=self.indexer)
 
 
-class _vCard:
+class vCard:
     """
     This class describes a vCard object representation.
     """
@@ -1386,7 +726,7 @@ class vCardSet(set):
         Adds the specified vCard.
 
         :param      vcard:  The vCard
-        :type       vcard:  _vCard
+        :type       vcard:  vCard
         """
         if is_vcard(vcard):
             super().add(vcard)
@@ -1637,7 +977,27 @@ class vCardSet(set):
             return tuple(result)
 
 
-class _vCard_Converter:
+def is_vcard(object):
+    """
+    Determines whether the specified object is vCard object.
+
+    :param      object:  The object
+    :type       object:  any type
+    """
+    return isinstance(object, vCard)
+
+
+def is_vcard_property(object):
+    """
+    Determines whether the specified object is vCard property object.
+
+    :param      object:  The object
+    :type       object:  any type
+    """
+    return isinstance(object, vCard_entry)
+
+
+class vCard_Converter:
     """
     This class describes a vCard converter to various sources.
     """
@@ -1649,7 +1009,7 @@ class _vCard_Converter:
         :param      source:  The source
         :type       source:  _VCard or vCardSet
         """
-        if isinstance(source, _vCard) or isinstance(source, vCardSet):
+        if isinstance(source, vCard) or isinstance(source, vCardSet):
             self.source = source
             self._value = source.repr_vcard()
         else:
@@ -1683,25 +1043,25 @@ class _vCard_Converter:
         """
         Return a vCard converter object to HTML (hCard)
         """
-        return pyvcard_hcard.hCard_Converter(self.source)
+        return pyvcard.sources.hcard.hCard_Converter(self.source)
 
     def csv(self):
         """
         Return a vCard converter object to CSV
         """
-        return pyvcard_converters.csv_Converter(self.source)
+        return pyvcard.sources.csv_source.csv_Converter(self.source)
 
     def json(self):
         """
         Return a vCard converter object to JSON (jCard)
         """
-        return pyvcard_converters.jCard_Converter(self.source)
+        return pyvcard.sources.jcard.jCard_Converter(self.source)
 
     def xml(self):
         """
         Return a vCard converter object to XML (xCard)
         """
-        return pyvcard_converters.xCard_Converter(self.source)
+        return pyvcard.sources.xcard.xCard_Converter(self.source)
 
 
 class _vCard_Builder:
@@ -1745,7 +1105,7 @@ class _vCard_Builder:
             value = list(map(func, value))
         else:
             value = [str(value)]
-        entry = _vCard_entry(name.upper(), value, params, group, version=self._version, encoded=encoding_raw)
+        entry = vCard_entry(name.upper(), value, params, group, version=self._version, encoded=encoding_raw)
         self._properties.append(entry)
 
     def set_phone(self, number):
@@ -1755,7 +1115,7 @@ class _vCard_Builder:
         :param      number:  The number
         :type       number:  str or int
         """
-        tel = _vCard_entry("TEL", [str(number)])
+        tel = vCard_entry("TEL", [str(number)])
         self._properties.append(tel)
 
     def set_name(self, name):
@@ -1778,9 +1138,9 @@ class _vCard_Builder:
             fname = "".join(name)
         else:
             raise ValueError(f"Invalid argument: {name}")
-        entry1 = _vCard_entry("FN", [fname])
+        entry1 = vCard_entry("FN", [fname])
         self._properties.append(entry1)
-        entry2 = _vCard_entry("N", name)
+        entry2 = vCard_entry("N", name)
         self._properties.append(entry2)
 
     def set_version(self, version):
@@ -1799,7 +1159,7 @@ class _vCard_Builder:
         Returns vCard object
         """
         if len(self._properties) != 0:
-            vcard = _vCard(args=self._properties, version=self._version)
+            vcard = vCard(args=self._properties, version=self._version)
             if self.indexer is not None:
                 for entry in vcard:
                     self.indexer.index(entry, vcard)
@@ -1823,7 +1183,7 @@ def parse(source, indexer=None):
     :param      indexer:  The indexer that will be set
     :type       indexer:  instance of vCardIndexer or None
     """
-    return _vCard_Parser(source, indexer=indexer)
+    return vCard_Parser(source, indexer=indexer)
 
 
 def convert(source):
@@ -1831,9 +1191,9 @@ def convert(source):
     Returns a vCard converter object
 
     :param      source:  The source
-    :type       source: _vCard or vCardSet
+    :type       source: vCard or vCardSet
     """
-    return _vCard_Converter(source)
+    return vCard_Converter(source)
 
 
 def parse_from(source, type, indexer=None):
@@ -1848,63 +1208,17 @@ def parse_from(source, type, indexer=None):
     :type       indexer:  instance of vCardIndexer or None
     """
     if type == SOURCES.XML or type == "xml":
-        return pyvcard_parsers.xCard_Parser(source, indexer)
+        return pyvcard.sources.xcard.xCard_Parser(source, indexer)
     elif type == SOURCES.JSON or type == "json":
-        return pyvcard_parsers.jCard_Parser(source, indexer)
+        return pyvcard.sources.jcard.jCard_Parser(source, indexer)
     elif type == SOURCES.CSV or type == "csv":
-        return pyvcard_parsers.csv_Parser(source, indexer)
+        return pyvcard.sources.csv_source.csv_Parser(source, indexer)
     elif type == SOURCES.HTML or type == "html":
-        return pyvcard_hcard.hCard_Parser(source, indexer)
+        return pyvcard.sources.hcard.hCard_Parser(source, indexer)
     elif type == SOURCES.VCF:
         return parse(source, indexer)
     else:
         raise TypeError(f"Type {type} isn't found")
-
-
-def builder(indexer=None, version="4.0"):
-    """
-    Returns a vCard object builder
-
-    :param      indexer:  The indexer
-    :type       indexer: instance of vCardIndexer or None
-    :param      version:  The version
-    :type       version:  string
-    """
-    return _vCard_Builder(indexer=indexer, version=version)
-
-
-def openfile(file, mode="r", encoding=None, buffering=-1,
-             errors=None, newline=None, opener=None, indexer=None):
-    """
-    Opens a file for parsing vCard files (vcf). Returns a parser
-
-    The arguments are similar to the standard function 'open'.
-    :param      indexer:    The indexer
-    :type       indexer:    instance of vCardIndexer or None
-    """
-    f = open(file, mode, encoding=encoding, buffering=buffering,
-             errors=errors, newline=newline, opener=opener)
-    return parse(f, indexer=indexer)
-
-
-def is_vcard(object):
-    """
-    Determines whether the specified object is vCard object.
-
-    :param      object:  The object
-    :type       object:  any type
-    """
-    return isinstance(object, _vCard)
-
-
-def is_vcard_property(object):
-    """
-    Determines whether the specified object is vCard property object.
-
-    :param      object:  The object
-    :type       object:  any type
-    """
-    return isinstance(object, _vCard_entry)
 
 
 def parse_name_property(prop):
@@ -1934,200 +1248,13 @@ def parse_name_property(prop):
     return result
 
 
-def migrate_vcard(vcard):
+def builder(indexer=None, version="4.0"):
     """
-    Migrates vCard objects to various vCard standard version
+    Returns a vCard object builder
 
-    :param      vcard:  The vcard
-    :type       vcard:  vCard object
+    :param      indexer:  The indexer
+    :type       indexer: instance of vCardIndexer or None
+    :param      version:  The version
+    :type       version:  string
     """
-    return _VersionMigrator(vcard)
-
-
-class _VersionMigrator:
-    """
-    This class describes a vCard version migrator.
-    """
-
-    def __init__(self, source):
-        """
-        Constructs a new instance.
-
-        :param      source:  The source
-        :type       source:  vCard object
-        """
-        self._source = source
-        if not is_vcard(self._source):
-            raise TypeError("vCard required, not vCardSet")
-
-    def _version_conv(self, version):
-        if version == VERSION.V2_1:
-            version = "2.1"
-        elif version == VERSION.V3:
-            version = "3.0"
-        elif version == VERSION.V4:
-            version = "4.0"
-        return version
-
-    def migrate(self, version):
-        """
-        Migrates vCard to specified version
-
-        :param      version:  The version
-        :type       version:  str or VERSION
-        """
-        version = self._version_conv(version)
-        if self._source.version.value == "2.1" and version == "3.0":
-            return self._2to3()
-        elif self._source.version.value == "3.0" and version == "4.0":
-            return self._3to4()
-        elif self._source.version.value == "2.1" and version == "4.0":
-            return self._3to4(self._2to3())
-        elif self._source.version.value == "3.0" and version == "2.1":
-            return self._3to2()
-        elif self._source.version.value == "4.0" and version == "3.0":
-            return self._4to3()
-        elif self._source.version.value == "4.0" and version == "2.1":
-            return self._3to2(self._4to3())
-        else:
-            return self._source
-
-    def _2to3(self, source=None):
-        if source is None:
-            source = self._source
-        args = []
-        args.append(_vCard_entry("VERSION", "3.0"))
-        for prop in source:
-            if prop.name == "VERSION":
-                continue
-            params = {}
-            for param in prop.params:
-                if param == "ENCODING":
-                    if prop.params["ENCODING"].upper() == "QUOTED-PRINTABLE":
-                        continue
-                if prop.params[param] is None:
-                    if "TYPE" not in params:
-                        params["TYPE"] = param.lower()
-                    else:
-                        params["TYPE"] += "," + param.lower()
-                    continue
-                params[param] = prop.params[param]
-            args.append(_vCard_entry(prop.name, prop.values, params, prop.group, version="3.0", encoded=False))
-        return _vCard(args, "3.0")
-
-    def _3to4(self, source=None):
-        if source is None:
-            source = self._source
-        args = []
-        args.append(_vCard_entry("VERSION", "4.0"))
-        for prop in source:
-            if prop.name in ["VERSION", "AGENT", "LABEL", "NAME", "MAILER", "CLASS"]:
-                continue
-            values = prop.values
-            params = prop.params
-            for param in prop.params:
-                if param == "ENCODING":
-                    if prop.name in ["LOGO", "PHOTO"]:
-                        vtype = "data:image/{};base64,"
-                        replace = "jpeg"
-                    elif prop.name == "SOUND":
-                        vtype = "data:audio/{};base64,"
-                        replace = "basic"
-                    elif prop.name == "KEY":
-                        vtype = "application/{};base64,"
-                        replace = "pgp-keys"
-                    if "TYPE" in prop.params:
-                        replace = prop.params["TYPE"]
-                    param = prop.params
-                    params.pop("ENCODING")
-                    vtype = vtype.format(replace)
-                    if isinstance(prop.value, bytes):
-                        val = base64_encode(prop.value)
-                    else:
-                        val = prop.value
-                    values = [vtype + val]
-                elif param == "TYPE":
-                    params["TYPE"] = params["TYPE"].split(",")
-                    if "intl" in params["TYPE"]:
-                        params["TYPE"].pop("intl")
-                    elif "dom" in params["TYPE"]:
-                        params["TYPE"].pop("dom")
-                    elif "postal" in params["TYPE"]:
-                        params["TYPE"].pop("postal")
-                    if "parcel" in params["TYPE"]:
-                        params["TYPE"].pop("parcel")
-                    params["TYPE"] = ",".join(params["TYPE"])
-                elif prop.params[param] is None:
-                    params.pop(param)
-                    if "TYPE" not in params:
-                        params["TYPE"] = param.lower()
-                    else:
-                        params["TYPE"] += "," + param.lower()
-            if prop.name == "GEO":
-                values = ["geo:" + ",".join(prop.values)]
-            args.append(_vCard_entry(prop.name, values, params, prop.group, version="4.0", encoded=False))
-        return _vCard(args, version="4.0")
-
-    def _3to2(self, source=None):
-        if source is None:
-            source = self._source
-        args = []
-        args.append(_vCard_entry("VERSION", "2.0"))
-        for prop in source:
-            if prop.name in [
-                "VERSION", "CATEGORIES", "CLASS", "NICKNAME",
-                "PRODID", "SORT-STRING", "SOURCE", "NAME", "PROFILE"
-            ]:
-                continue
-            params = {}
-            for value in prop.values:
-                if not value.isascii():
-                    params["ENCODING"] = "quoted-printable"
-                    break
-            for param in prop.params:
-                if param == "TYPE":
-                    types = prop.params[param].split(",")
-                    for t in types:
-                        params[t] = None
-                    continue
-                params[param] = prop.params[param]
-            args.append(_vCard_entry(prop.name, prop.values, params, prop.group, version="2.0", encoded=False))
-        return _vCard(args, "2.0")
-
-    def _4to3(self, source=None):
-        if source is None:
-            source = self._source
-        args = []
-        args.append(_vCard_entry("VERSION", "3.0"))
-        for prop in source:
-            if prop.name in [
-                "VERSION", "RELATED", "KIND", "GENDER",
-                "LANG", "ANNIVERSARY", "XML", "CLIENTPIDMAP",
-                "FBURL", "CALADRURI", "CAPURI", "CALURI", "IMPP"
-            ]:
-                continue
-            values = []
-            params = prop.params
-            regex = r"data:{}\/(\w+);base64,"
-            for value in prop.values:
-                if prop.name in ["LOGO", "PHOTO"]:
-                    regex = regex.format("image")
-                    m = re.match(regex, value)
-                elif prop.name == "SOUND":
-                    regex = regex.format("audio")
-                    m = re.match(regex, value)
-                elif prop.name == "KEY":
-                    regex = regex.format("application")
-                    m = re.match(regex, value)
-                elif prop.name == "GEO":
-                    values = prop.value.replace("geo:", "").split(",")
-                    break
-                else:
-                    m = None
-                if m:
-                    value = base64_decode(re.sub(regex, value))
-                    params["ENCODING"] = "b"
-                    params["TYPE"] = m.group(1)
-                values.append(value)
-            args.append(_vCard_entry(prop.name, values, params, prop.group, version="3.0", encoded=False))
-        return _vCard(args, version="3.0")
+    return _vCard_Builder(indexer=indexer, version=version)

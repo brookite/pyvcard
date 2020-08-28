@@ -1,5 +1,5 @@
-from pyvcard_exceptions import *
-from pyvcard_regex import *
+from .exceptions import *
+from .regex import *
 from urllib.parse import urlparse
 import re
 import warnings
@@ -88,9 +88,9 @@ def values_count_required(property, mincount, maxcount):
     :type       maxcount:  int
     """
     if len(property.values) < mincount:
-        raise VCardValidationError(f"Values of property {property.name} count must be in [{mincount}, {maxcount}]", property)
+        raise vCardValidationError(f"Values of property {property.name} count must be in [{mincount}, {maxcount}]", property)
     elif len(property.values) > maxcount:
-        raise VCardValidationError(f"Values of property {property.name} count must be in [{mincount}, {maxcount}]", property)
+        raise vCardValidationError(f"Values of property {property.name} count must be in [{mincount}, {maxcount}]", property)
 
 
 def params_count_required(property, mincount, maxcount):
@@ -105,9 +105,9 @@ def params_count_required(property, mincount, maxcount):
     :type       maxcount:  int
     """
     if len(property.params) < mincount:
-        raise VCardValidationError(f"Values of property {property.name} count must be in [{mincount}, {maxcount}]", property)
+        raise vCardValidationError(f"Values of property {property.name} count must be in [{mincount}, {maxcount}]", property)
     elif len(property.params) > maxcount:
-        raise VCardValidationError(f"Values of property {property.name}  count must be in [{mincount}, {maxcount}]", property)
+        raise vCardValidationError(f"Values of property {property.name}  count must be in [{mincount}, {maxcount}]", property)
 
 
 def validate_value_parameter(property, values, param_required=False, text_allowed=True):
@@ -127,10 +127,10 @@ def validate_value_parameter(property, values, param_required=False, text_allowe
         val = property.params["VALUE"].lower()
         if val not in values:
             if val != "text" and text_allowed:
-                raise VCardValidationError(f"VALUE param {val} is not found", property)
+                raise vCardValidationError(f"VALUE param {val} is not found", property)
     else:
         if param_required:
-            raise VCardValidationError("VALUE param not found", property)
+            raise vCardValidationError("VALUE param not found", property)
 
 
 def validate_group(group, property=None):
@@ -143,7 +143,7 @@ def validate_group(group, property=None):
     :type       property:  _vCard_entry or None
     """
     if not re.match(GROUP, group):
-        raise VCardValidationError("Group isn't match", property)
+        raise vCardValidationError("Group isn't match", property)
 
 
 def validate_datetime(value, subtype, property=None):
@@ -178,11 +178,11 @@ def validate_datetime(value, subtype, property=None):
                 re.match(VALID_TIMESTAMP, value), re.match(VALID_DATE, value),
                 re.match(VALID_TIME, value), re.match(VALID_DATETIME, value)
             ]):
-                raise VCardValidationError("Date or time isn't match", property)
+                raise vCardValidationError("Date or time isn't match", property)
     else:
         raise ValueError("Incorrect subtype", property)
     if not re.match(pattern, value):
-        raise VCardValidationError(f"{subtype} isn't match", property)
+        raise vCardValidationError(f"{subtype} isn't match", property)
 
 
 def validate_float(value, property=None):
@@ -195,7 +195,7 @@ def validate_float(value, property=None):
     :type       property:  _vCard_entry
     """
     if re.match(VALID_FLOAT, value) is None:
-        raise VCardValidationError("Float isn't match", property)
+        raise vCardValidationError("Float isn't match", property)
 
 
 def validate_integer(value, property=None):
@@ -208,7 +208,7 @@ def validate_integer(value, property=None):
     :type       property:  _vCard_entry or None
     """
     if re.match(VALID_INTEGER, value) is None:
-        raise VCardValidationError("Integer isn't match", property)
+        raise vCardValidationError("Integer isn't match", property)
 
 
 def validate_utc_offset(value, property=None):
@@ -221,7 +221,7 @@ def validate_utc_offset(value, property=None):
     :type       property:  _vCard_entry or None
     """
     if re.match(VALID_TZ, value) is None:
-        raise VCardValidationError("UTC offset isn't match", property)
+        raise vCardValidationError("UTC offset isn't match", property)
 
 
 def validate_language_tag(value, property=None):
@@ -234,7 +234,7 @@ def validate_language_tag(value, property=None):
     :type       property:  _vCard_entry or None
     """
     if re.match(LANG_TAG, value) is None:
-        raise VCardValidationError("Language Tag isn't match", property)
+        raise vCardValidationError("Language Tag isn't match", property)
 
 
 def validate_boolean(value, property=None):
@@ -247,7 +247,7 @@ def validate_boolean(value, property=None):
     :type       property:  _vCard_entry or None
     """
     if not (value.upper() == "TRUE" or value.upper() == "FALSE"):
-        raise VCardValidationError("Boolean must be true or false", property)
+        raise vCardValidationError("Boolean must be true or false", property)
 
 
 def validate_uri(value, property=None):
@@ -261,7 +261,7 @@ def validate_uri(value, property=None):
     """
     parsed = urlparse(value)
     if parsed[0] == '' or (parsed[1] == '' and parsed[2] == ''):
-        raise VCardValidationError("URI is incorrect", property)
+        raise vCardValidationError("URI is incorrect", property)
 
 
 def validate_parameter(property):
@@ -277,23 +277,23 @@ def validate_parameter(property):
         elif param == "PREF" and property.params[param] is not None:
             i = int(property.params[param])
             if i > 100 or i < 1:
-                raise VCardValidationError("PREF param has invalid parameter", property)
+                raise vCardValidationError("PREF param has invalid parameter", property)
         elif param == "PID":
             if not re.match(r"(\d+)(.(\d+))*(,(\d+)(.(\d+)))*", property.params[param]):
-                raise VCardValidationError("PID param has invalid parameter", property)
+                raise vCardValidationError("PID param has invalid parameter", property)
         elif param == "SORT-AS":
             if not re.match(r"\"(\w+)(,(\w+))*\"", property.params[param]):
-                raise VCardValidationError("SORT-AS param has invalid parameter", property)
+                raise vCardValidationError("SORT-AS param has invalid parameter", property)
         elif param == "LEVEL":
             values = [
                 "beginner", "average", "expert",
                 "high", "medium", "low"
             ]
             if property.params[param] not in values:
-                raise VCardValidationError("Incorrect LEVEL parameter value", property)
+                raise vCardValidationError("Incorrect LEVEL parameter value", property)
         elif param == "INDEX":
             if not re.match(VALID_INTEGER, property.params[param]):
-                raise VCardValidationError("SORT-AS param has invalid parameter", property)
+                raise vCardValidationError("SORT-AS param has invalid parameter", property)
 
 
 def validate_property(property, version):
@@ -308,7 +308,7 @@ def validate_property(property, version):
     validate_parameter(property)
     if property.name == "PROFILE":
         if property.values[0].lower() != "vcard":
-            raise VCardValidationError(property, "Profile must be with VALUE=VCARD")
+            raise vCardValidationError(property, "Profile must be with VALUE=VCARD")
     elif property.name == "SOURCE":
         if version == "4.0":
             validate_value_parameter(property, ["uri"], text_allowed=False)
@@ -334,7 +334,7 @@ def validate_property(property, version):
         values_count_required(property, 1, 1)
         if "ENCODING" in property.params:
             if property.params["ENCODING"].lower() not in ["b", "base64"]:
-                raise VCardValidationError("Encoding must be 'b' or 'base64' ", property)
+                raise vCardValidationError("Encoding must be 'b' or 'base64' ", property)
     elif property.name in ["BDAY", "ANNIVERSARY", "DEATHDATE"]:
         validate_value_parameter(property, ["date-and-or-time", "date", "date-time"])
         values_count_required(property, 1, 1)
@@ -344,7 +344,7 @@ def validate_property(property, version):
     elif property.name == "GENDER":
         values_count_required(property, 1, 2)
         if len(property.values[0]) != 1:
-            raise VCardValidationError("Incorrect gender tag")
+            raise vCardValidationError("Incorrect gender tag")
     elif property.name == "ADR":
         validate_value_parameter(property, [])
         values_count_required(property, 7, 7)
@@ -354,7 +354,7 @@ def validate_property(property, version):
                 for subvalue in subvalues:
                     subvalue = subvalue.lower()
                     if subvalue.lower() not in LABEL_TEL and not subvalue.lower().startswith("x-"):
-                        raise VCardValidationError(f"ADR type {subvalue} is unknown")
+                        raise vCardValidationError(f"ADR type {subvalue} is unknown")
     elif property.name == "LABEL":
         values_count_required(property, 1, 1)
         if version == "4.0":
@@ -363,14 +363,14 @@ def validate_property(property, version):
             subvalues = property.params["TYPE"].split(",")
             for subvalue in subvalues:
                 if subvalue.lower() not in LABEL_TEL and not subvalue.lower().startswith("x-"):
-                    raise VCardValidationError(f"LABEL type {subvalue} is unknown")
+                    raise vCardValidationError(f"LABEL type {subvalue} is unknown")
     elif property.name == "TEL":
         validate_value_parameter(property, ["uri"])
         if "TYPE" in property.params:
             subvalues = property.params["TYPE"].split(",")
             for subvalue in subvalues:
                 if subvalue.lower() not in TYPE_TEL and not subvalue.lower().startswith("x-"):
-                    raise VCardValidationError(f"TEL type {subvalue} is unknown")
+                    raise vCardValidationError(f"TEL type {subvalue} is unknown")
     elif property.name == "EMAIL":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)
@@ -378,7 +378,7 @@ def validate_property(property, version):
             subvalues = property.params["TYPE"].split(",")
             for subvalue in subvalues:
                 if subvalue.lower() not in TYPE_EMAIL and not subvalue.lower().startswith("x-"):
-                    raise VCardValidationError(f"EMAIL type {subvalue} is unknown")
+                    raise vCardValidationError(f"EMAIL type {subvalue} is unknown")
     elif property.name == "IMPP":
         validate_value_parameter(property, ["uri"])
         values_count_required(property, 1, 1)
@@ -441,9 +441,9 @@ def validate_property(property, version):
                 "crush", "date", "sweetheart", "me",
                 "agent", "emergency"
             ]:
-                raise VCardValidationError("TYPE is incorrect", property)
+                raise vCardValidationError("TYPE is incorrect", property)
             else:
-                raise VCardValidationError("TYPE not found", property)
+                raise vCardValidationError("TYPE not found", property)
     elif property.name == "CATEGORIES":
         validate_value_parameter(property, [])
         values_count_required(property, 1, 1)

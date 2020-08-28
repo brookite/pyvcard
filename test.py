@@ -15,7 +15,7 @@ for i in os.listdir(vcard_dir):
         try:
             vcard = pyvcard.openfile(pth, encoding="utf-8", indexer=indexer).vcards()
             bundle.update(vcard)
-        except pyvcard.VCardValidationError as e:
+        except pyvcard.vCardValidationError as e:
             print(pth, str(e))
         except Exception as e:
             # print_exc()

@@ -1,4 +1,4 @@
-class VCardFormatError(Exception):
+class vCardFormatError(Exception):
     """
     This class describes a vCard exception that will be raised if
     string format were violated
@@ -11,7 +11,7 @@ class VCardFormatError(Exception):
         self.property = property
 
 
-class VCardValidationError(Exception):
+class vCardValidationError(Exception):
     """
     This class describes a vCard exception that
     will be raised if vCard definition rules were violated
