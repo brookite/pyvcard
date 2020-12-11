@@ -16,7 +16,7 @@ setup(name='pyvcard',
       python_requires='>=3.6',
       license="MIT",
       install_requires=['BeautifulSoup4'],
-      packages=find_packages(include=["pyvcard", "pyvcard.sources"]),
+      packages=["pyvcard", "pyvcard.sources"],
       package_data={"": ["LICENSE", "README.md"], },
       include_package_data=True,
       zip_safe=False)

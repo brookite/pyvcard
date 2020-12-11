@@ -1,8 +1,6 @@
 __pycache__/
-pyvcard/__pycache__/
-pyvcard/sources/__pycache__/
-tests/
-vcards/
-dist/
-build/
-pyvcard.egg-info/
+/tests/
+/vcards/
+/dist/
+/build/
+/pyvcard.egg-info/
