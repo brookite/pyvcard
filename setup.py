@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='pyvcard',
-      version='1.0a.dev3',
+      version='1.0a.dev4',
       description='Powerful vCard parser',
       long_description=open("README.md").read(),
       long_description_content_type='text/markdown',
@@ -12,7 +12,7 @@ setup(name='pyvcard',
       ],
       keywords='vcard vcf contact pyvcard rfc2426 rfc6350',
       url='http://github.com/frankdog-dev/pyvcard',
-      author='frankdog-dev',
+      author='brookit',
       python_requires='>=3.6',
       license="MIT",
       install_requires=['BeautifulSoup4'],
