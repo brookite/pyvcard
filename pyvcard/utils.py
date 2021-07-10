@@ -9,7 +9,7 @@ quopri_warning = True
 line_warning = True
 
 
-def escape(string, characters=[";", ",", "\n", "\r", ":"]):
+def escape(string, characters=[";", ",", "\n", "\r", ":"]) -> str:
     """
     Escapes listed characters with a character \\
 
@@ -33,7 +33,7 @@ def escape(string, characters=[";", ",", "\n", "\r", ":"]):
     return string
 
 
-def unescape(string, only_double=False):
+def unescape(string, only_double=False) -> str:
     """
     Unescapes all escaped characters
 
@@ -55,7 +55,7 @@ def unescape(string, only_double=False):
     return r
 
 
-def quoted_to_str(string, encoding="utf-8", property=None):
+def quoted_to_str(string: str, encoding="utf-8", property=None) -> str:
     """
     Decodes Quoted-Printable text to string with encoding
 
@@ -74,7 +74,7 @@ def quoted_to_str(string, encoding="utf-8", property=None):
         return string
 
 
-def str_to_quoted(string, encoding="utf-8"):
+def str_to_quoted(string: str, encoding="utf-8") -> str:
     """
     Encoded string to Quoted-Printable text with encoding
 
@@ -92,7 +92,7 @@ def str_to_quoted(string, encoding="utf-8"):
         return string
 
 
-def strinteger(string):
+def strinteger(string: str) -> str:
     """
     Clears a string from non-numeric characters
     :param      string:  The string
@@ -114,7 +114,7 @@ def strinteger(string):
         return 0
 
 
-def base64_encode(value):
+def base64_encode(value: bytes) -> str:
     """
     Encodes bytes to base64 encoding
 
@@ -126,7 +126,7 @@ def base64_encode(value):
     return base64.b64encode(value).decode("utf-8")
 
 
-def base64_decode(value, property=None):
+def base64_decode(value: str, property=None) -> bytes:
     """
     Decodes base64 to bytes
 
@@ -194,7 +194,7 @@ def split_noescape(str, sep):
     return re.split(r'(?<!\\)' + sep, str)
 
 
-def _fold_line(string, expect_quopri=False):
+def _fold_line(string: str, expect_quopri=False) -> str:
     """
     Utility method. Don't recommend for use in outer code
     Folds the line, may expect quoted-printable

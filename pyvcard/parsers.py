@@ -1,4 +1,4 @@
-def get_string(obj):
+def get_string(obj) -> str:
     """
     Gets the string from file or str. Utility method
     """

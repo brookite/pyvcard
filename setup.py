@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='pyvcard',
-      version='1.0a.dev4',
+      version='1.0a.dev5',
       description='Powerful vCard parser',
       long_description=open("README.md").read(),
       long_description_content_type='text/markdown',
@@ -11,7 +11,7 @@ setup(name='pyvcard',
           'License :: OSI Approved :: MIT License',
       ],
       keywords='vcard vcf contact pyvcard rfc2426 rfc6350',
-      url='http://github.com/frankdog-dev/pyvcard',
+      url='http://github.com/brookite/pyvcard',
       author='brookit',
       python_requires='>=3.6',
       license="MIT",

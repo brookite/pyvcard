@@ -6,7 +6,13 @@ import datetime
 import pyvcard.converters
 
 
-def define_type(property):
+class vCardType:
+    @property
+    def rawvalue(self):
+        return self._value
+
+
+def define_type(property) -> vCardType:
     """
     Utility method. Defines the type of value
     """
@@ -30,12 +36,6 @@ def define_type(property):
             return UTCOffset(property.values)
         else:
             return UnknownType(property.values)
-
-
-class vCardType:
-    @property
-    def rawvalue(self):
-        return self._value
 
 
 class UnknownType(vCardType):

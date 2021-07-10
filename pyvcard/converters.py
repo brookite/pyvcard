@@ -3,7 +3,8 @@ from .validator import validate_uri
 
 import base64
 
-def encoding_convert(source, params):
+
+def encoding_convert(source, params: str) -> str:
     """
     Encodes the property
 
@@ -30,12 +31,12 @@ def encoding_convert(source, params):
             return source
 
 
-def determine_type(prop):
+def determine_type(prop) -> str:
     """
     Determines the type by property.
 
     :param      prop:  The property
-    :type       prop:  _vCard
+    :type       prop:  _vCard property
     """
     if "VALUE" in prop.params:
         return prop.params["VALUE"]
@@ -64,7 +65,7 @@ def determine_type(prop):
             return "unknown"
 
 
-def recognize_param_type(param, value):
+def recognize_param_type(param, value) -> str:
     """
     Recognize parameter type by name (uses RFC6350)
 

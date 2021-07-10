@@ -475,20 +475,33 @@ class vCard:
         :param      key:  The key, if number - returns by a index, if name - returns by a first occurence of name
         :type       key:  int or str
 
-        :returns:   { description_of_the_return_value }
-        :rtype:     { return_type_description }
+        :returns:   vCard entry object (array or single element)
         """
         if isinstance(key, int):
             return self._attrs[key]
         else:
-            arr = []
-            for i in self._attrs:
-                if i.name == key:
-                    arr.append(i)
-            if len(arr) == 1:
-                return arr[0]
-            else:
-                return arr
+            return self.get(key, False)
+
+    def get(self, key: str, prefer_array=False):
+        """
+        Gets property in vCard
+
+        :param      key:  The key, if number - returns by a index, if name - returns by a first occurence of name
+        :type       key:  str
+
+        :param      prefer_array: Return results only as list or tuple
+        :type       prefer_array: boolean
+
+        :returns:   vCard entry object (array or single element (if not prefer_array))
+        """
+        arr = []
+        for i in self._attrs:
+            if i.name == key:
+                arr.append(i)
+        if len(arr) == 1 and not prefer_array:
+            return arr[0]
+        else:
+            return tuple(arr)
 
     def __contains__(self, key):
         if not is_vcard_property(key):
