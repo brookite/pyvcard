@@ -11,6 +11,12 @@ class vCardType:
     def rawvalue(self):
         return self._value
 
+    def __repr__(self):
+        return repr(self._value)
+    
+    def __str__(self):
+        return str(self._value)
+
 
 def define_type(property) -> vCardType:
     """
@@ -42,13 +48,12 @@ class UnknownType(vCardType):
     def __init__(self, value):
         self._value = value
 
-
-class Text(vCardType, str):
+class Text(vCardType):
     def __init__(self, value):
-        if isinstance(value, str):
+        if len(value) == 1:
+            self._value = value[0]
+        else:
             self._value = value
-        str.__init__(value)
-
 
 class NameType(vCardType):
     def __init__(self, value):
@@ -87,7 +92,10 @@ class NameType(vCardType):
 
 class URI(vCardType):
     def __init__(self, value):
-        self._value = value
+        if len(value) == 1:
+            self._value = value[0]
+        else:
+            self._value = value
 
     def parse(self):
         return urlparse(self._value)
