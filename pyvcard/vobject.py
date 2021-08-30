@@ -1165,6 +1165,10 @@ class _vCard_Builder:
         """
         if version in ["2.1", "3.0", "4.0"]:
             self._version = version
+            for prop in self._properties:
+                if prop.name == "VERSION":
+                    self._properties.remove(prop)
+                    break
             self.add_property("VERSION", version)
 
     def build(self):

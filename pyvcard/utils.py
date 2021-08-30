@@ -6,7 +6,6 @@ import warnings
 from .exceptions import vCardFormatError
 
 quopri_warning = True
-line_warning = True
 
 
 def escape(string, characters=[";", ",", "\n", "\r", ":"]) -> str:
@@ -154,8 +153,6 @@ def _unfold_lines(strings):
         string.replace("\n", "")
         if string == "":
             continue
-        if len(string) > 75 and line_warning:
-            warnings.warn("Long line found in current VCard (length > 75)")
         if string.startswith(" ") or string.startswith("\t"):
             if len(lines) == 0:
                 raise vCardFormatError("Illegal whitespace at string 1")

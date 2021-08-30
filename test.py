@@ -98,6 +98,8 @@ class vcardtest(unittest.TestCase):
         f.write(txt)
         f.close()
         pyvcard.parse_from(txt, "xml").vcards()
+        with open(os.path.join(vcard_dir, "rfc6351-example.xml")) as f:
+            pyvcard.parse_from(f.read(), "xml").vcards()
 
     def test_search(self):
         self.file = open(os.path.join(test_path, "log.txt"), "w", encoding="utf-8")

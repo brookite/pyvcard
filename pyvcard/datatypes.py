@@ -13,7 +13,7 @@ class vCardType:
 
     def __repr__(self):
         return repr(self._value)
-    
+
     def __str__(self):
         return str(self._value)
 
@@ -48,12 +48,14 @@ class UnknownType(vCardType):
     def __init__(self, value):
         self._value = value
 
+
 class Text(vCardType):
     def __init__(self, value):
         if len(value) == 1:
             self._value = value[0]
         else:
             self._value = value
+
 
 class NameType(vCardType):
     def __init__(self, value):
@@ -141,7 +143,7 @@ class Date(vCardTimeType):
         return [self.year, self.month, self.day]
 
     @property
-    def date(self):
+    def datetime(self):
         if all(map(lambda x: x is not None, self.array)):
             return datetime.date(*self.array)
         else:

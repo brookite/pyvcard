@@ -4,7 +4,7 @@ from .vcard import migrate_vcard, openfile
 from .utils import (
     escape, unescape, str_to_quoted,
     split_noescape, strinteger, base64_decode,
-    base64_encode, quoted_to_str, quopri_warning, line_warning
+    base64_encode, quoted_to_str, quopri_warning
 )
 from .enums import (
     VERSION, SOURCES
