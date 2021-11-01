@@ -224,3 +224,6 @@ def _fold_line(string: str, expect_quopri=False) -> str:
         return "\n".join(strings)
     else:
         return string
+
+def remove_junk_symbols(string):
+    return re.sub("[\u202a-\u202e\x80-\xa0\u2000-\u200f\u2011]", " ", string.rstrip())

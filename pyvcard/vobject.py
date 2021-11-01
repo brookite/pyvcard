@@ -6,7 +6,7 @@ from pyvcard.exceptions import vCardFormatError, vCardValidationError
 from pyvcard.indexer import vCardIndexer
 from pyvcard.regex import VCARD_BORDERS, CONTENTLINE, PARAM, PARAM_21, CONTENTLINE_21
 from pyvcard.utils import split_noescape, unescape, quoted_to_str, base64_decode, _unfold_lines, strinteger, \
-    base64_encode, str_to_quoted, escape, _fold_line
+    base64_encode, str_to_quoted, escape, _fold_line, remove_junk_symbols
 from pyvcard.validator import validate_property
 
 import pyvcard.sources.jcard
@@ -168,6 +168,7 @@ def _parse_line(string, version):
     Utility method. Don't recommend for use in outer code
     Parses a unfolded line and returns a array for parser
     """
+    string = remove_junk_symbols(string)
     m1 = re.match(VCARD_BORDERS, string)
     if m1:
         return _STATE.BEGIN if m1.group(3) == "BEGIN" else _STATE.END
@@ -240,7 +241,7 @@ def _parse_lines(strings, indexer=None):
     buf = []
     i = 1
     for string in strings:
-        parsed = _parse_line(string.rstrip(), version)
+        parsed = _parse_line(string, version)
         if parsed == _STATE.BEGIN:
             vcard = vCard()
             if card_opened:
