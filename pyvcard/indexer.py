@@ -372,10 +372,11 @@ class vCardIndexer:
                 return value in x
 
         s = []
-        lst = list(filter(filter_function, self._params[paramname].keys()))
-        for i in lst:
-            for j in self._params[paramname][i]:
-                s.append(i)
+        if paramname in self._params:
+            lst = list(filter(filter_function, self._params[paramname].keys()))
+            for i in lst:
+                for j in self._params[paramname][i]:
+                    s.append(i)
         return tuple(set(s))
 
     def find_by_value(self, value, fullmatch=True):
