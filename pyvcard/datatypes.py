@@ -226,7 +226,7 @@ class DateTime(vCardTimeType):
 
     @property
     def year(self):
-        return self._year
+        return self._year if self._year else None
 
     @property
     def day(self):
