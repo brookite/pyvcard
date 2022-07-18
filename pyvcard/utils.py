@@ -2,6 +2,7 @@ import base64
 import quopri
 import re
 import warnings
+from typing import Union
 
 from .exceptions import vCardFormatError
 
@@ -113,7 +114,7 @@ def strinteger(string: str) -> str:
         return 0
 
 
-def base64_encode(value: bytes) -> str:
+def base64_encode(value: Union[bytes, str]) -> str:
     """
     Encodes bytes to base64 encoding
 

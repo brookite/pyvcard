@@ -20,7 +20,7 @@ __all__ = [
     "parse_from", "builder", "parse", "convert", "validate_vcards",
     "migrate_vcard", "openfile", "escape", "unescape", "strinteger",
     "str_to_quoted", "split_noescape", "base64_encode", "base64_decode",
-    "quopri_warning", "line_warning", "quoted_to_str", "VERSION",
+    "quopri_warning", "quoted_to_str", "VERSION",
     "SOURCES", "vCardIndexer", "LibraryNotFoundError", "vCardFormatError",
     "vCardValidationError"
 ]
