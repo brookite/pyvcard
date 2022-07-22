@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 
 from pyvcard.regex import VCARD_BORDERS, CONTENTLINE, PARAM, PARAM_21, CONTENTLINE_21
 from pyvcard.utils import split_noescape, unescape, _unfold_lines, remove_junk_symbols
@@ -8,10 +9,11 @@ from pyvcard.exceptions import vCardFormatError, vCardValidationError
 import pyvcard.vobject.containers
 import pyvcard.vobject.structures
 
+
 def _parse_line(string, version):
     """
     Utility method. Don't recommend for use in outer code
-    Parses a unfolded line and returns a array for parser
+    Parses an unfolded line and returns an array for parser
     """
     string = remove_junk_symbols(string)
     m1 = re.match(VCARD_BORDERS, string)
@@ -59,21 +61,23 @@ def _parse_line(string, version):
     return None
 
 
-def parse_property(string):
+def parse_property(string: str, version: str) -> Optional["pyvcard.vobject.structures.vCard_entry"]:
     """
     Parses a property
 
     :param      string:  The string
     :type       string:  str
+    :param      version:  The vCard version
+    :type       version:  str
     """
-    c = _parse_line(string)
+    c = _parse_line(string, version)
     if c is None:
         return None
     else:
         return pyvcard.vobject.structures.vCard_entry(*c)
 
 
-def _parse_lines(strings, indexer=None):
+def _parse_lines(strings, indexer: "vCardIndexer" = None):
     """
     Utility method. Don't recommend for use
     Parses lines in list, indexer is supported
@@ -123,7 +127,7 @@ class vCard_Parser:
     Parses a vCard files (VCF) or any vCard string
     """
 
-    def __init__(self, source, indexer=None):
+    def __init__(self, source, indexer: "vCardIndexer" = None):
         self.indexer = indexer
         if isinstance(source, str):
             if source.strip() == "":
@@ -143,14 +147,14 @@ class vCard_Parser:
             else:
                 raise IOError(f"Source is not file, type is {type(source)}")
 
-    def vcards(self):
+    def vcards(self) -> "pyvcard.vobject.containers.vCardSet":
         """
         :returns:   result of parsing
         :rtype:     vCardSet
         """
         return pyvcard.vobject.containers.vCardSet(self.__args, indexer=self.indexer)
 
-    def vcard_list(self):
+    def vcard_list(self) -> "pyvcard.vobject.containers.vCardList":
         """
         :returns:   ordered result of parsing
         :rtype:     vCardList

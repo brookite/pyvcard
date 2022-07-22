@@ -66,7 +66,7 @@ class xCard_Converter(AbstractConverter):
     def value_struct(self, attr, vcard_attr, value_param):
         """
         Utility method. Don't recommend for use in outer code!
-        Converts values
+        Converts value to node
         """
         if vcard_attr.name == "N":
             value_node = et.SubElement(attr, "surname")

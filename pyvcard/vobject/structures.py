@@ -1,4 +1,5 @@
-from pyvcard.utils import strinteger, base64_encode, str_to_quoted, escape, _fold_line
+from typing import Dict, Union, List, Collection
+
 from pyvcard.enums import VERSION
 from pyvcard.validator import validate_property
 from pyvcard.datatypes import define_type
@@ -8,7 +9,7 @@ from pyvcard.utils import quoted_to_str, base64_decode, strinteger, \
 validate_vcards = True
 
 
-def decode_property(property):
+def decode_property(property: "vCard_entry"):
     """
     Utility method. Don't recommend for use in outer code
     Decodes a property.
@@ -28,12 +29,17 @@ def decode_property(property):
                 if property._values[i] != '':
                     property._values[i] = base64_decode(property._values[i].encode(charset), property)
 
+
 class vCard_entry:
     """
     This class describes a vCard property
     """
 
-    def __init__(self, name, values, params={}, group=None, version="4.0", encoded=True):
+    def __init__(self, name: str, values: List[str],
+                 params: Dict[str, str] = {},
+                 group=None,
+                 version: str = "4.0",
+                 encoded: bool = True):
         """
         Constructs a new instance of property.
 
@@ -66,13 +72,12 @@ class vCard_entry:
             validate_property(self, version)
         if encoded is True:
             decode_property(self)
-        self._values = tuple(self._values)
         self._version = version
 
     def __bool__(self):
         return True
 
-    def __eq__(self, other):
+    def __eq__(self, other: "vCard_entry"):
         if id(self) == id(other):
             return True
         if type(self) != type(other):
@@ -100,7 +105,7 @@ class vCard_entry:
         hashcode += hash(self._version)
         return hashcode
 
-    def repr_vcard(self, encode=True):
+    def repr_vcard(self, encode: bool = True):
         """
         Returns a string representation of entry
 
@@ -179,7 +184,8 @@ class vCard:
     This class describes a vCard object representation.
     """
 
-    def __init__(self, args=[], version=None):
+    def __init__(self, args: Collection[vCard_entry] = [],
+                 version: str = None):
         self._attrs = args
         self._indexer = None
         self._version = version
@@ -243,7 +249,7 @@ class vCard:
         1. Full Name
         2. Struct Name - dict
         3. Phone Number - list
-        If one of value is not defined - they equals None
+        If one of value is not defined - they equal None
         Returns a dict with keys "name", "number", "struct_name"
         """
         obj = dict.fromkeys(["name", "number", "struct_name"], None)
@@ -287,7 +293,7 @@ class vCard:
                 name.append(strinteger(i.values[0]))
         return name
 
-    def _set_version(self, version):
+    def _set_version(self, version: str):
         self._version = version
 
     def __repr__(self):
@@ -299,7 +305,7 @@ class vCard:
     def __bytes__(self):
         return self.repr_vcard().encode("utf-8")
 
-    def repr_vcard(self, encode=True):
+    def repr_vcard(self, encode: bool = True):
         """
         Returns a string representation of vCard
 
@@ -316,11 +322,11 @@ class vCard:
     def __len__(self):
         return len(self._attrs)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Union[str, int]):
         """
         Gets property in vCard
 
-        :param      key:  The key, if number - returns by a index, if name - returns by a first occurence of name
+        :param      key:  The key, if number - returns by an index, if name - returns by a first occurrence of name
         :type       key:  int or str
 
         :returns:   vCard entry object (array or single element)
@@ -330,11 +336,11 @@ class vCard:
         else:
             return self.get(key, False)
 
-    def get(self, key: str, prefer_array=False):
+    def get(self, key: str, prefer_array: bool = False):
         """
         Gets property in vCard
 
-        :param      key:  The key, if number - returns by a index, if name - returns by a first occurence of name
+        :param      key:  The key, if number - returns by an index, if name - returns by a first occurrence of name
         :type       key:  str
 
         :param      prefer_array: Return results only as list or tuple
@@ -351,7 +357,7 @@ class vCard:
         else:
             return tuple(arr)
 
-    def __contains__(self, key):
+    def __contains__(self, key: str):
         if not is_vcard_property(key):
             for i in self._attrs:
                 if i.name == key:
@@ -367,7 +373,10 @@ class vCard:
     def properties(self):
         return tuple(self._attrs)
 
-    def find_by_group(self, group, case=False, fullmatch=True, indexsearch=True):
+    def find_by_group(self, group: str,
+                      case: bool = False,
+                      fullmatch: bool = True,
+                      indexsearch: bool = True):
         """
         Finds a by group.
 
@@ -400,7 +409,10 @@ class vCard:
                         return [self]
             return []
 
-    def find_by_name(self, fn, case=False, fullmatch=True, indexsearch=True):
+    def find_by_name(self, fn: str,
+                     case: bool = False,
+                     fullmatch: bool = True,
+                     indexsearch: bool = True):
         """
         Finds a by name.
 
@@ -430,7 +442,9 @@ class vCard:
                         return [self]
             return []
 
-    def find_by_phone(self, number, fullmatch=True, parsestr=True, indexsearch=True):
+    def find_by_phone(self, number: Union[str, int],
+                      fullmatch: bool = False,
+                      parsestr: bool = True, indexsearch: bool = True):
         """
         Finds a by phone number.
 
@@ -459,7 +473,9 @@ class vCard:
                         r.append(self)
             return r
 
-    def find_by_phone_endswith(self, number, parsestr=True, indexsearch=True):
+    def find_by_phone_endswith(self, number: Union[str, int],
+                               parsestr: bool = True,
+                               indexsearch: bool = True):
         """
         Finds a by phone number ending.
 
@@ -490,7 +506,9 @@ class vCard:
         """
         return self.repr_vcard()
 
-    def find_by_phone_startswith(self, number, parsestr=True, indexsearch=True):
+    def find_by_phone_startswith(self, number: Union[str, int],
+                                 parsestr: bool = True,
+                                 indexsearch: bool = True):
         """
         Finds a by starts of a phone.
 
@@ -515,7 +533,9 @@ class vCard:
                         r.append(self)
             return r
 
-    def find_by_property(self, paramname, value, fullmatch=True, indexsearch=True):
+    def find_by_property(self, paramname: str, value: Union[str, List[str]],
+                         fullmatch: bool = True,
+                         indexsearch: bool = True):
         """
         Finds a by property name and value.
 
@@ -548,7 +568,9 @@ class vCard:
                         return [self]
             return []
 
-    def find_by_value(self, value, fullmatch=True, indexsearch=True):
+    def find_by_value(self, value: str,
+                      fullmatch: bool = True,
+                      indexsearch: bool = True):
         """
         Finds a by property value.
 
@@ -570,7 +592,7 @@ class vCard:
             return result
 
 
-def is_vcard(object):
+def is_vcard(object) -> bool:
     """
     Determines whether the specified object is vCard object.
 
@@ -580,7 +602,7 @@ def is_vcard(object):
     return isinstance(object, vCard)
 
 
-def is_vcard_property(object):
+def is_vcard_property(object) -> bool:
     """
     Determines whether the specified object is vCard property object.
 
@@ -590,7 +612,7 @@ def is_vcard_property(object):
     return isinstance(object, vCard_entry)
 
 
-def parse_name_property(prop):
+def parse_name_property(prop) -> Dict:
     """
     Parses name property list to dict with keys: surname, given_name, additional_name,
     prefix, suffix

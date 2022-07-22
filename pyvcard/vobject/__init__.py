@@ -1,3 +1,6 @@
+from typing import Union
+
+from pyvcard.parsers import AbstractParser
 from pyvcard.vobject.tools import vCard_Converter, _vCard_Builder
 from pyvcard.vobject.parsing import vCard_Parser
 from pyvcard.vobject.structures import vCard, vCard_entry, is_vcard, is_vcard_property, \
@@ -11,33 +14,33 @@ import pyvcard.sources.csv_source
 import pyvcard.sources.hcard
 
 
-def parse(source, indexer=None):
+def parse(source, indexer: "vCardIndexer" = None) -> vCard_Parser:
     """
-    Returns a vCard parser object
+    Returns a vCard parser
 
-    :param      source:   The source
-    :type       source:   file descriptor or str
+    :param      source:   Source to find .vcf file
+    :type       source:   File descriptor or str
     :param      indexer:  The indexer that will be set
-    :type       indexer:  instance of vCardIndexer or None
+    :type       indexer:  vCardIndexer or None
     """
     return vCard_Parser(source, indexer=indexer)
 
 
-def convert(source):
+def convert(source: str) -> vCard_Converter:
     """
     Returns a vCard converter object
 
-    :param      source:  The source
+    :param      source:  Source to find .vcf file
     :type       source: vCard or vCardSet
     """
     return vCard_Converter(source)
 
 
-def parse_from(source, type, indexer=None):
+def parse_from(source: str, type: str, indexer: "vCardIndexer" = None) -> Union[AbstractParser, vCard_Parser]:
     """
     Parses vCard from various sources (see SOURCES enum)
 
-    :param      source:   The source
+    :param      source:   Source to find .vcf file
     :type       source:   str
     :param      type:     The type
     :type       type:     str or SOURCES enum
@@ -58,7 +61,7 @@ def parse_from(source, type, indexer=None):
         raise TypeError(f"Type {type} isn't found")
 
 
-def builder(indexer=None, version="4.0"):
+def builder(indexer: "vCardIndexer" = None, version="4.0") -> _vCard_Builder:
     """
     Returns a vCard object builder
 

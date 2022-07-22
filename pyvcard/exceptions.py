@@ -26,7 +26,7 @@ class vCardValidationError(Exception):
 
 class LibraryNotFoundError(Exception):
     """
-    This class describes a exception what may be occure when pyvcard couldn't find required libraries
+    This class describes an exception what may occur when pyvcard couldn't find required libraries
 
     Libraries argument contains all required libraries
     """

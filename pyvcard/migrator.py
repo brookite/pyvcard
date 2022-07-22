@@ -1,4 +1,5 @@
 import re
+from typing import Union
 
 from .vobject import is_vcard
 from .enums import VERSION
@@ -22,7 +23,7 @@ class _VersionMigrator:
         if not is_vcard(self._source):
             raise TypeError("vCard required, not vCardSet")
 
-    def _version_conv(self, version):
+    def _version_conv(self, version: VERSION) -> str:
         if version == VERSION.V2_1:
             version = "2.1"
         elif version == VERSION.V3:
@@ -31,7 +32,7 @@ class _VersionMigrator:
             version = "4.0"
         return version
 
-    def migrate(self, version):
+    def migrate(self, version: Union[str, VERSION]):
         """
         Migrates vCard to specified version
 

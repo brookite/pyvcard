@@ -57,7 +57,7 @@ def _has_class(tag, *tags, target=None):
 
 class hCard_Parser(AbstractParser):
     """
-    This class describes a HTML to vCard object parser (hCard)
+    This class describes an HTML to vCard object parser (hCard)
     """
 
     def __init__(self, html, indexer):

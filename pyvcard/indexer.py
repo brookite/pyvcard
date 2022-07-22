@@ -1,3 +1,5 @@
+from typing import Optional, Union, List
+
 import pyvcard.vobject
 from pyvcard.utils import strinteger, base64_encode
 
@@ -9,7 +11,7 @@ class vCardIndexer:
     can inherit this class for their implementations
     """
 
-    def __init__(self, index_params=False):
+    def __init__(self, index_params: bool = False):
         """
         Constructs a new instance.
 
@@ -49,15 +51,15 @@ class vCardIndexer:
             vcard._indexer = self
             self._vcards.append(vcard)
 
-    def index(self, entry, vcard):
+    def index(self, entry: "vCard_entry", vcard: "vCard"):
         """
         Indexes property in vcard. Don't recommend for use in outer code
         This method is used in vCard parsers
 
         :param      entry:  vCard property
-        :type       entry:  _vCard_entry
+        :type       entry:  vCard_entry
         :param      vcard:  The target vCard
-        :type       vcard:  _vCard
+        :type       vcard:  vCard
         """
         if isinstance(entry, pyvcard.vobject.vCard_entry):
             if entry.group is not None:
@@ -101,7 +103,9 @@ class vCardIndexer:
     def vcards(self):
         return tuple(self._vcards)
 
-    def difference_search(self, type, value, diff_func, k=85, use_param=None):
+    def difference_search(self, type: str, value: str,
+                          diff_func, k: int = 85,
+                          use_param: Optional[str] = None):
         """
         Searches for specific parameters using a third-party function that returns an integer value similarity coefficient
         (example: fuzzywuzzy module methods)
@@ -190,7 +194,9 @@ class vCardIndexer:
         """
         return tuple(self._groups[group])
 
-    def find_by_group(self, group, fullmatch=True, case=False):
+    def find_by_group(self, group: str,
+                      case: bool = False,
+                      fullmatch: bool = True):
         """
         Finds a by group in all indexed vcards.
 
@@ -225,7 +231,8 @@ class vCardIndexer:
         else:
             return tuple()
 
-    def find_by_name(self, fn, case=False, fullmatch=True):
+    def find_by_name(self, fn: str,
+                     case: bool = False, fullmatch: bool = True):
         """
         Finds a by name in all indexed vcards.
 
@@ -263,7 +270,9 @@ class vCardIndexer:
         else:
             return tuple()
 
-    def find_by_phone(self, number, fullmatch=False, parsestr=True):
+    def find_by_phone(self, number: Union[str, int],
+                      fullmatch: bool = False,
+                      parsestr: bool = True):
         """
         Finds a by phone number in all indexed vcards.
 
@@ -296,7 +305,8 @@ class vCardIndexer:
         else:
             return tuple()
 
-    def find_by_phone_endswith(self, number, parsestr=True):
+    def find_by_phone_endswith(self, number: Union[str, int],
+                               parsestr: bool = True):
         """
         Finds a by phone number ending in all indexed vcards.
 
@@ -322,7 +332,8 @@ class vCardIndexer:
                 result.add(j)
         return tuple(result)
 
-    def find_by_phone_startswith(self, number, parsestr=True):
+    def find_by_phone_startswith(self, number: Union[str, int],
+                                 parsestr: bool = True):
         """
         Finds a by start of phone number in all indexed vcards.
 
@@ -348,7 +359,8 @@ class vCardIndexer:
                 result.add(j)
         return tuple(result)
 
-    def find_by_property(self, paramname, value, fullmatch=True):
+    def find_by_property(self, paramname: str, value: Union[str, List[str]],
+                         fullmatch: bool = True):
         """
         Finds a by property name and value.
 
@@ -379,7 +391,8 @@ class vCardIndexer:
                     s.append(i)
         return tuple(set(s))
 
-    def find_by_value(self, value, fullmatch=True):
+    def find_by_value(self, value: str,
+                      fullmatch: bool = True):
         """
         Finds a by property value.
 

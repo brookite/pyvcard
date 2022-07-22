@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from .exceptions import *
 from .regex import *
 from urllib.parse import urlparse
@@ -76,12 +78,12 @@ def validate_bool_wrapper(validator_func, *args, **kwargs):
         return False
 
 
-def values_count_required(property, mincount, maxcount):
+def values_count_required(property: "vCard_entry", mincount: int, maxcount: int) -> None:
     """
     Validates value count in property. Utility function
 
     :param      property:  The property
-    :type       property:  _vCard_entry
+    :type       property:  vCard_entry
     :param      mincount:  The mincount
     :type       mincount:  int
     :param      maxcount:  The maxcount
@@ -93,7 +95,7 @@ def values_count_required(property, mincount, maxcount):
         raise vCardValidationError(f"Values of property {property.name} count must be in [{mincount}, {maxcount}]", property)
 
 
-def params_count_required(property, mincount, maxcount):
+def params_count_required(property: "vCard_entry", mincount: int, maxcount: int) -> None:
     """
     Validates value count in property. Utility function
 
@@ -110,12 +112,15 @@ def params_count_required(property, mincount, maxcount):
         raise vCardValidationError(f"Values of property {property.name}  count must be in [{mincount}, {maxcount}]", property)
 
 
-def validate_value_parameter(property, values, param_required=False, text_allowed=True):
+def validate_value_parameter(property: "vCard_entry",
+                             values: List[str],
+                             param_required: bool = False,
+                             text_allowed: bool = True) -> None:
     """
     Validates "VALUE" parameter in property
 
     :param      property:        The property
-    :type       property:        _vCard_entry
+    :type       property:        vCard_entry
     :param      values:          The values
     :type       values:          list
     :param      param_required:  The parameter 'VALUE' in property required
@@ -133,20 +138,22 @@ def validate_value_parameter(property, values, param_required=False, text_allowe
             raise vCardValidationError("VALUE param not found", property)
 
 
-def validate_group(group, property=None):
+def validate_group(group: str,
+                   property: Optional["vCard_entry"] = None) -> None:
     """
     Validates group in property. Property if not None will be saved in exception
 
     :param      value:     The value
     :type       value:     str
     :param      property:  The property
-    :type       property:  _vCard_entry or None
+    :type       property:  vCard_entry or None
     """
     if not re.match(GROUP, group):
         raise vCardValidationError("Group isn't match", property)
 
 
-def validate_datetime(value, subtype, property=None):
+def validate_datetime(value: str, subtype: str,
+                      property: Optional["vCard_entry"] = None) -> None:
     """
     Validates date and time values. Property if not None will be saved in exception
 
@@ -155,7 +162,7 @@ def validate_datetime(value, subtype, property=None):
     :param      subtype:   The subtype of date or time ("datetime", "time", "date")
     :type       subtype:   str
     :param      property:  The property
-    :type       property:  _vCard_entry or None
+    :type       property:  vCard_entry or None
     """
     if subtype == "datetime" or subtype == "date-time":
         pattern = VALID_DATETIME
@@ -185,14 +192,14 @@ def validate_datetime(value, subtype, property=None):
         raise vCardValidationError(f"{subtype} isn't match", property)
 
 
-def validate_float(value, property=None):
+def validate_float(value: str, property: Optional["vCard_entry"] = None) -> None:
     """
     Validates text type value. Property if not None will be saved in exception
 
     :param      value:     The value
     :type       value:     str
     :param      property:  The property
-    :type       property:  _vCard_entry
+    :type       property:  vCard_entry or None
     """
     if re.match(VALID_FLOAT, value) is None:
         raise vCardValidationError("Float isn't match", property)
@@ -205,13 +212,13 @@ def validate_integer(value, property=None):
     :param      value:     The value
     :type       value:     str
     :param      property:  The property
-    :type       property:  _vCard_entry or None
+    :type       property:  vCard_entry or None
     """
     if re.match(VALID_INTEGER, value) is None:
         raise vCardValidationError("Integer isn't match", property)
 
 
-def validate_utc_offset(value, property=None):
+def validate_utc_offset(value: str, property: Optional["vCard_entry"] = None):
     """
     Validates text type value. Property if not None will be saved in exception
 
@@ -224,7 +231,7 @@ def validate_utc_offset(value, property=None):
         raise vCardValidationError("UTC offset isn't match", property)
 
 
-def validate_language_tag(value, property=None):
+def validate_language_tag(value: str, property: Optional["vCard_entry"] = None):
     """
     Validates language tag type value. Property if not None will be saved in exception
 
@@ -237,7 +244,7 @@ def validate_language_tag(value, property=None):
         raise vCardValidationError("Language Tag isn't match", property)
 
 
-def validate_boolean(value, property=None):
+def validate_boolean(value: str, property: Optional["vCard_entry"] = None) -> None:
     """
     Validates boolean type value. Property if not None will be saved in exception
 
@@ -250,7 +257,7 @@ def validate_boolean(value, property=None):
         raise vCardValidationError("Boolean must be true or false", property)
 
 
-def validate_uri(value, property=None):
+def validate_uri(value, property: Optional["vCard_entry"] = None) -> None:
     """
     Validates uri type value. Property if not None will be saved in exception
 
@@ -264,12 +271,12 @@ def validate_uri(value, property=None):
         raise vCardValidationError("URI is incorrect", property)
 
 
-def validate_parameter(property):
+def validate_parameter(property: "vCard_entry"):
     """
     Validates parameters in property
 
     :param      property:  The property
-    :type       property:  _vCard_entry
+    :type       property:  vCard_entry
     """
     for param in property.params:
         if param == "LANGUAGE":
@@ -296,12 +303,12 @@ def validate_parameter(property):
                 raise vCardValidationError("SORT-AS param has invalid parameter", property)
 
 
-def validate_property(property, version):
+def validate_property(property: "vCard_entry", version: str):
     """
     Validates the property (values and parameters)
 
     :param      property:  The property
-    :type       property:  _vCard_entry
+    :type       property:  vCard_entry
     :param      version:   The version
     :type       version:   str
     """

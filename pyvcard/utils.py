@@ -2,14 +2,14 @@ import base64
 import quopri
 import re
 import warnings
-from typing import Union
+from typing import Union, List, Optional
 
 from .exceptions import vCardFormatError
 
 quopri_warning = True
 
 
-def escape(string, characters=[";", ",", "\n", "\r", ":"]) -> str:
+def escape(string: str, characters: List[str] = (";", ",", "\n", "\r", ":")) -> str:
     """
     Escapes listed characters with a character \\
 
@@ -33,7 +33,7 @@ def escape(string, characters=[";", ",", "\n", "\r", ":"]) -> str:
     return string
 
 
-def unescape(string, only_double=False) -> str:
+def unescape(string: Optional[Union[str, bytes]], only_double: bool = False) -> str:
     """
     Unescapes all escaped characters
 
@@ -55,7 +55,7 @@ def unescape(string, only_double=False) -> str:
     return r
 
 
-def quoted_to_str(string: str, encoding="utf-8", property=None) -> str:
+def quoted_to_str(string: str, encoding: str = "utf-8", property=None) -> str:
     """
     Decodes Quoted-Printable text to string with encoding
 
@@ -92,13 +92,13 @@ def str_to_quoted(string: str, encoding="utf-8") -> str:
         return string
 
 
-def strinteger(string: str) -> str:
+def strinteger(string: str) -> Union[int, float]:
     """
     Clears a string from non-numeric characters
     :param      string:  The string
     :type       string:  str
 
-    Returns a int or a float (if '.' was in string)
+    Returns an int or a float (if '.' was in string)
     """
     n = ""
     if isinstance(string, int) or string == "":
@@ -176,7 +176,7 @@ def _unfold_lines(strings):
     return lines
 
 
-def split_noescape(str, sep):
+def split_noescape(str: str, sep: str) -> List[str]:
     """
     Splits with no escape.
     Similar to str.split but does not consider escaped characters
@@ -226,5 +226,6 @@ def _fold_line(string: str, expect_quopri=False) -> str:
     else:
         return string
 
-def remove_junk_symbols(string):
+
+def remove_junk_symbols(string: str) -> str:
     return re.sub("[\u202a-\u202e\x80-\xa0\u2000-\u200f\u2011]", " ", string.rstrip())

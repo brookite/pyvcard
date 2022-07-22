@@ -1,3 +1,5 @@
+from typing import Collection, Optional, Union, List
+
 import pyvcard.vobject.structures
 from pyvcard.indexer import vCardIndexer
 from pyvcard.utils import base64_encode
@@ -8,13 +10,13 @@ class _vCardContainerMixin:
     This class describes a set with vCard objects
     """
 
-    def __init__(self, iter=[]):
-        for object in iter:
-            if not pyvcard.vobject.structures.is_vcard(object):
+    def __init__(self, iterable: Collection = []):
+        for obj in iterable:
+            if not pyvcard.vobject.structures.is_vcard(obj):
                 raise TypeError("vCardSet requires only vCard objects")
-        self._indexer = None
+        self._indexer: vCardIndexer = None
 
-    def add(self, vcard):
+    def add(self, vcard: "vCard"):
         """
         Adds the specified vCard.
 
@@ -24,7 +26,7 @@ class _vCardContainerMixin:
         if pyvcard.vobject.structures.is_vcard(vcard):
             super().add(vcard)
 
-    def setindex(self, indexer):
+    def setindex(self, indexer: vCardIndexer):
         """
         Sets indexer for this object
 
@@ -36,7 +38,7 @@ class _vCardContainerMixin:
         else:
             raise TypeError(f"Required vCardIndexer instance, not {type(indexer)}")
 
-    def repr_vcard(self, encode=True):
+    def repr_vcard(self, encode: bool = True):
         """
         Returns a string representation of vCard
 
@@ -49,7 +51,10 @@ class _vCardContainerMixin:
             s += "\n"
         return s
 
-    def difference_search(self, type, value, diff_func, k=85, use_param=None, indexsearch=True):
+    def difference_search(self, type: str, value: str,
+                          diff_func, k: int = 85,
+                          use_param: Optional[str] = None,
+                          indexsearch: bool = True):
         """
         Searches for specific parameters using a third-party function that returns an integer value similarity coefficient
         (example: fuzzywuzzy module methods)
@@ -107,7 +112,10 @@ class _vCardContainerMixin:
         array = tuple(set(filter(filter_function, self)))
         return array
 
-    def find_by_group(self, group, case=False, fullmatch=True, indexsearch=True):
+    def find_by_group(self, group: str,
+                      case: bool = False,
+                      fullmatch: bool = True,
+                      indexsearch: bool = True):
         """
         Finds a by group.
 
@@ -131,7 +139,9 @@ class _vCardContainerMixin:
                         result.add(value)
             return tuple(result)
 
-    def find_by_name(self, fn, case=False, fullmatch=True, indexsearch=True):
+    def find_by_name(self, fn: str,
+                     case: bool = False, fullmatch: bool = True,
+                     indexsearch: bool = True):
         """
         Finds a by name.
 
@@ -155,7 +165,9 @@ class _vCardContainerMixin:
                         result.add(value)
             return tuple(result)
 
-    def find_by_phone(self, number, fullmatch=False, parsestr=True, indexsearch=True):
+    def find_by_phone(self, number: Union[str, int],
+                      fullmatch: bool = False,
+                      parsestr: bool = True, indexsearch: bool = True):
         """
         Finds a by phone number.
 
@@ -179,7 +191,9 @@ class _vCardContainerMixin:
                         result.add(value)
             return tuple(result)
 
-    def find_by_phone_endswith(self, number, parsestr=True, indexsearch=True):
+    def find_by_phone_endswith(self, number: Union[str, int],
+                               parsestr: bool = True,
+                               indexsearch: bool = True):
         """
         Finds a by phone number ending.
 
@@ -201,7 +215,9 @@ class _vCardContainerMixin:
                         result.add(value)
             return tuple(result)
 
-    def find_by_phone_startswith(self, number, parsestr=True, indexsearch=True):
+    def find_by_phone_startswith(self, number: Union[str, int],
+                                 parsestr: bool = True,
+                                 indexsearch: bool = True):
         """
         Finds a by starts of a phone.
 
@@ -223,7 +239,9 @@ class _vCardContainerMixin:
                         result.add(value)
             return tuple(result)
 
-    def find_by_property(self, paramname, value, fullmatch=True, indexsearch=True):
+    def find_by_property(self, paramname: str, value: Union[str, List[str]],
+                         fullmatch: bool = True,
+                         indexsearch: bool = True):
         """
         Finds a by property name and value.
 
@@ -247,7 +265,9 @@ class _vCardContainerMixin:
                         result.add(e)
             return tuple(result)
 
-    def find_by_value(self, value, fullmatch=True, indexsearch=True):
+    def find_by_value(self, value: str,
+                      fullmatch: bool = True,
+                      indexsearch: bool = True):
         """
         Finds a by property value.
 
@@ -271,12 +291,12 @@ class _vCardContainerMixin:
 
 
 class vCardList(list, _vCardContainerMixin):
-    def __init__(self, iter=[], indexer=None):
-        super(vCardList, self).__init__(iter)
+    def __init__(self, iterable=[], indexer=None):
+        super(vCardList, self).__init__(iterable)
         self._indexer = indexer
 
 
 class vCardSet(set, _vCardContainerMixin):
-    def __init__(self, iter=[], indexer=None):
-        super(vCardSet, self).__init__(iter)
+    def __init__(self, iterable=[], indexer=None):
+        super(vCardSet, self).__init__(iterable)
         self._indexer = indexer

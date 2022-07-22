@@ -1,3 +1,5 @@
+from typing import Union, List, Dict, Optional
+
 import pyvcard.vobject.structures as structures
 import pyvcard.vobject.containers as containers
 
@@ -6,17 +8,18 @@ import pyvcard.sources.xcard
 import pyvcard.sources.csv_source
 import pyvcard.sources.hcard
 
+
 class vCard_Converter:
     """
     This class describes a vCard converter to various sources.
     """
 
-    def __init__(self, source):
+    def __init__(self, source: Union["vCardSet", "vCard"]):
         """
         Constructs a new instance.
 
         :param      source:  The source
-        :type       source:  _VCard or vCardSet
+        :type       source:  vCard or vCardSet
         """
         if isinstance(source, structures.vCard) or isinstance(source, containers.vCardSet):
             self.source = source
@@ -24,7 +27,7 @@ class vCard_Converter:
         else:
             raise TypeError(f"Required vCard or vCardSet type, not {type(source)}")
 
-    def file(self, filename, encoding="utf-8"):
+    def file(self, filename: str, encoding: str = "utf-8") -> None:
         """
         Creates a file using filename and encoding
 
@@ -48,25 +51,25 @@ class vCard_Converter:
         """
         return bytes(self._value)
 
-    def html(self):
+    def html(self) -> pyvcard.sources.hcard.hCard_Converter:
         """
         Return a vCard converter object to HTML (hCard)
         """
         return pyvcard.sources.hcard.hCard_Converter(self.source)
 
-    def csv(self):
+    def csv(self) -> pyvcard.sources.csv_source.csv_Converter:
         """
         Return a vCard converter object to CSV
         """
         return pyvcard.sources.csv_source.csv_Converter(self.source)
 
-    def json(self):
+    def json(self) -> pyvcard.sources.jcard.jCard_Converter:
         """
         Return a vCard converter object to JSON (jCard)
         """
         return pyvcard.sources.jcard.jCard_Converter(self.source)
 
-    def xml(self):
+    def xml(self) -> pyvcard.sources.xcard.xCard_Converter:
         """
         Return a vCard converter object to XML (xCard)
         """
@@ -78,13 +81,16 @@ class _vCard_Builder:
     Front-end to create vCard objects step by step.
     """
 
-    def __init__(self, version="4.0", indexer=None):
+    def __init__(self, version: str = "4.0", indexer: "vCardIndexer" = None):
         self.indexer = indexer
         self._properties = []
         self._version = version
         self.set_version(version)
 
-    def add_property(self, name, value, params={}, group=None, encoding_raw=False):
+    def add_property(self, name: str, value: Union[List[str], str],
+                     params: Dict[str, str] = {},
+                     group: Optional[str] = None,
+                     encoding_raw: bool = False):
         """
         Adds a property. Low-level function
 
@@ -117,7 +123,7 @@ class _vCard_Builder:
         entry = structures.vCard_entry(name.upper(), value, params, group, version=self._version, encoded=encoding_raw)
         self._properties.append(entry)
 
-    def set_phone(self, number):
+    def set_phone(self, number: Union[str, int]):
         """
         Sets the phone.
 
@@ -127,7 +133,7 @@ class _vCard_Builder:
         tel = structures.vCard_entry("TEL", [str(number)])
         self._properties.append(tel)
 
-    def set_name(self, name):
+    def set_name(self, name: str):
         """
         Sets the full name and structured name.
 
@@ -152,7 +158,7 @@ class _vCard_Builder:
         entry2 = structures.vCard_entry("N", name)
         self._properties.append(entry2)
 
-    def set_version(self, version):
+    def set_version(self, version: str):
         """
         Sets the version.
 

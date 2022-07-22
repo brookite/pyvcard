@@ -65,7 +65,7 @@ def determine_type(prop) -> str:
             return "unknown"
 
 
-def recognize_param_type(param, value) -> str:
+def recognize_param_type(param: str, value: str) -> str:
     """
     Recognize parameter type by name (uses RFC6350)
 

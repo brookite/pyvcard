@@ -1,3 +1,5 @@
+import os
+
 from pyvcard.migrator import _VersionMigrator
 from pyvcard.vobject import parse
 
@@ -11,7 +13,7 @@ http://microformats.org/wiki/hcard -  hCard
 """
 
 
-def openfile(file, mode="r", encoding=None, buffering=-1,
+def openfile(file: os.PathLike, mode="r", encoding=None, buffering=-1,
              errors=None, newline=None, opener=None, indexer=None):
     """
     Opens a file for parsing vCard files (vcf). Returns a parser
@@ -25,7 +27,7 @@ def openfile(file, mode="r", encoding=None, buffering=-1,
     return parse(f, indexer=indexer)
 
 
-def migrate_vcard(vcard):
+def migrate_vcard(vcard: "vCard"):
     """
     Migrates vCard objects to various vCard standard version
 
