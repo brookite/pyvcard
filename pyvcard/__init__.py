@@ -14,6 +14,9 @@ from .exceptions import (
     LibraryNotFoundError, vCardFormatError, vCardValidationError,
 )
 
+__author__ = "Brookit"
+__url__ = "https://github.com/brookite/pyvcard"
+__license__ = "MIT"
 __all__ = [
     "vCardSet", "is_vcard",
     "is_vcard_property", "parse_name_property",
