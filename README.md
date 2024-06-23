@@ -1,20 +1,15 @@
 # pyvcard
+pyvcard is a light and convenience library for interacting with vCard files. This library can parse, build, convert, perform vCard validation.  
+Supports vCard 2.1, 3.0, 4.0 (RFC 2426, RFC 6350)
 
-
-## Description:
-pyvcard is a light and convenience library for interacting with vCard files. This library can parse, build, convert, perform vCard validation
 
 Advantages:
 
 * vCard parsing
-
 * Supported JSON (jCard), XML (xCard), CSV parsing and converting
-
 * vCard object representation
-
 * vCard building
-
-* Searching in vCard object included
+* Searching in vCard object included support
 
 __Python 3.6+ recommended. WARNING: pyvcard is in early alpha. It may be unstable__
 
